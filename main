@@ -1,4 +1,46 @@
-print("hello world from superclass main")
-print("testing github sync after modificatins in cbib account")
+from tkinter import *
+from tkinter.filedialog import *
+from tkinter import messagebox
 
-print("testing github sync after modificatins in cbib account -- 2")
+def btn_choosedata():
+    var_dataDir.set(askdirectory(initialdir='/Users/mmluqman/Documents/Research/Project/001_SuperClass/002_ManipData'))
+    button_run.configure(state=NORMAL)
+    button_choose.configure(state=DISABLED)
+
+
+def btn_runCellClassificationAlgo():
+    messagebox.showinfo('Cell Classification Algorithm (v0)', 'running on data: '+var_dataDir.get())
+    button_choose.configure(state=NORMAL)
+    button_run.configure(state=DISABLED)
+
+
+if __name__ == "__main__":
+    winDataChoose = Tk()
+    winDataChoose.title('Projet "SuperClass" - Cell Classification Algorithm (v0)')
+    winDataChoose.focus_force()
+
+    label1 = Label(winDataChoose, text='Choose the "root folder for data" to run the classification algorithm on it: ')
+    label1.grid(row=0, column=0, pady=20, padx = 0)
+
+    var_dataDir = StringVar(winDataChoose)
+    var_dataDir.set('')
+
+    button_choose = Button(winDataChoose, text='Choose ...', command = btn_choosedata)
+    button_choose.grid(row=0, column=1, pady=20, padx = 0)
+
+    button_run = Button(winDataChoose, text='Run Cell Classification Algorithm (v0)', command=btn_runCellClassificationAlgo)
+    button_run.configure(state=DISABLED)
+    button_run.grid(row=1, column=0, columnspan=2)
+
+    label2 = Label(winDataChoose, text='Show result graphs: ')
+    label2.grid(row=2, column=0, sticky=E)
+
+    var_showGraphs = StringVar(winDataChoose)
+    var_showGraphs.set("No") # initial value
+    option_showGraphs = OptionMenu(winDataChoose, var_showGraphs, "No", "Yes")
+    option_showGraphs.grid(row=2, column=1, sticky=W)
+
+    canvas_results = Canvas(winDataChoose, width=550, height=400, bd=1,relief='ridge')
+    canvas_results.grid(row=3, column=0, columnspan=2)
+
+    winDataChoose.mainloop()
