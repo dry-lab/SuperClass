@@ -1,6 +1,8 @@
 from tkinter import *
 from tkinter.filedialog import *
 from tkinter import messagebox
+import pandas
+from visualizeResults import *
 
 def btn_choosedata():
     var_dataDir.set(askdirectory(initialdir='/Users/mmluqman/Documents/Research/Project/001_SuperClass/002_ManipData'))
@@ -9,9 +11,17 @@ def btn_choosedata():
 
 
 def btn_runCellClassificationAlgo():
-    messagebox.showinfo('Cell Classification Algorithm (v0)', 'running on data: '+var_dataDir.get())
-    button_choose.configure(state=NORMAL)
+    #messagebox.showinfo('Cell Classification Algorithm (v0)', 'running on data: '+var_dataDir.get())
     button_run.configure(state=DISABLED)
+    
+    plt = visualize_results_plate_class_color()
+    plt.show(block=FALSE)
+
+    data = pandas.DataFrame(np.random.random((8,12)))
+    fig = visualize_results_plate_class_membership(data)
+    fig.show()
+
+    button_choose.configure(state=NORMAL)
 
 
 if __name__ == "__main__":
@@ -19,7 +29,7 @@ if __name__ == "__main__":
     winDataChoose.title('Projet "SuperClass" - Cell Classification Algorithm (v0)')
     winDataChoose.focus_force()
 
-    label1 = Label(winDataChoose, text='Choose the "root folder for data" to run the classification algorithm on it: ')
+    label1 = Label(winDataChoose, text='Choose the directory of data, to run the classification algorithm on it: ')
     label1.grid(row=0, column=0, pady=20, padx = 0)
 
     var_dataDir = StringVar(winDataChoose)
