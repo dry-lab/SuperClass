@@ -1,4 +1,13 @@
-__author__ = 'mmluqman'
+__user__ = 'mmluqman'
+__author__ = "Muhammad Muzzamil LUQMAN"
+__copyright__ = ["Copyright 2015, CBiB", "Project SuperClass"]
+__credits__ = ["Muhammad Muzzamil LUQMAN", "Romain GIOT"]
+__license__ = "GPL"
+__version__ = "0.0"
+__maintainer__ = "Muhammad Muzzamil LUQMAN"
+__email__ = 'mmluqman@u-bordeaux.fr'
+__status__ = 'Prototype'
+
 
 import matplotlib.pyplot as plt
 import numpy as np
