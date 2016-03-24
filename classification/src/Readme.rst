@@ -1,8 +1,6 @@
 Classification of results
 =========================
 
-
-
 Here we are interested by recognizing treated cells against not treated cells.
 analyse_experiment.py does all the job.
 
