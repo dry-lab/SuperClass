@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """Classification from Anne's dataset
@@ -92,27 +91,19 @@ def extract_features_of_this_ROI(df, index):
  
     # XXX WARNING it seams that min/max values previously 
     #     set are not compatible with that
-
-
     msd_features = generate_MSD_feature_vector(df['MSD_0'])
-
     # print "toto"
     # print msd_features
-
     #mse_features = generate_MSE_feature_vector(df['MSE_D'])
-
     diffusion_features = generate_diffusion_coefficient_features_vector(df['Diffusion_Coefficient'])
-
     # XXX ERROR we are unable to generate the tracking stuff
-
     # XXX Merge the set of features
     all_feat = pd.concat([diffusion_features, msd_features], 
                          axis=1,
                          verify_integrity=False)
-
     all_feat['index'] = index
     all_feat = all_feat.set_index('index')
-    #print all_feat
+    print all_feat
     return all_feat
 
 def extract_features_of_each_ROI(df):

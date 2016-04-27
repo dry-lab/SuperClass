@@ -1,3 +1,4 @@
+#!/usr/bin/python
 __user__ = 'mmluqman'
 __author__ = "Muhammad Muzzamil LUQMAN"
 __copyright__ = ["Copyright 2015, CBiB", "Project SuperClass"]
@@ -9,7 +10,11 @@ __email__ = 'mmluqman@u-bordeaux.fr'
 __status__ = 'Prototype'
 
 
+import matplotlib
+matplotlib.use('TkAgg')
+#matplotlib.use('Qt4Agg')
 import matplotlib.pyplot as plt
+
 import numpy as np
 from matplotlib.table import Table
 import string

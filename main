@@ -1,3 +1,4 @@
+#!/usr/bin/python
 __user__ = 'mmluqman'
 __author__ = "Muhammad Muzzamil LUQMAN"
 __copyright__ = ["Copyright 2015, CBiB", "Project SuperClass"]
@@ -9,14 +10,16 @@ __email__ = 'mmluqman@u-bordeaux.fr'
 __status__ = 'Prototype'
 
 
-from tkinter import *
-from tkinter.filedialog import *
-from tkinter import messagebox
-import pandas
+from Tkinter import *
+#from Tkinter.filedialog import *
+from tkFileDialog import *
+#from Tkinter import messagebox
+from pandas import *
 from visualizeResults import *
 
 def btn_choosedata():
     var_dataDir.set(askdirectory(initialdir='/Users/mmluqman/Documents/Research/Project/001_SuperClass/002_ManipData'))
+    print var_dataDir.get()
     button_run.configure(state=NORMAL)
     button_choose.configure(state=DISABLED)
 
@@ -37,7 +40,7 @@ def btn_runCellClassificationAlgo():
 
 if __name__ == "__main__":
     winDataChoose = Tk()
-    winDataChoose.title('Projet "SuperClass" - Cell Classification Algorithm (v0)')
+    winDataChoose.title('Project SuperClass - Cell Classification Algorithm (v0)')
     winDataChoose.focus_force()
 
     label1 = Label(winDataChoose, text='Choose the directory of data, to run the classification algorithm on it: ')
