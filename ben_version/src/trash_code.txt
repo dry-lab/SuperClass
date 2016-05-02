@@ -1,0 +1,77 @@
+classify.py line 266
+
+############################################################################################
+        #try to clusterize results
+        ############################################################################################
+        
+        
+        
+#        DENSITY_RESULT_BINS=[0,1,2,3,4,5]
+#        #print DENSITY_RESULT_BINS
+#        DENSITY_RESULT_LABELS = ["HIST_RESULT_%d" % _ for _ in DENSITY_RESULT_BINS]
+#        #print DENSITY_RESULT_LABELS
+#        sample_result=[]
+#        counter=1
+#        for ROI, data in result_per_pit_df.groupby('pits'):
+#            print data['scores']
+#            print ROI
+##            #print ROI
+#            hist, bins = np.histogram(data['scores'], bins=DENSITY_RESULT_BINS)
+##            
+##            #hist = hist/float(hist.sum())
+##            #print hist
+##        # Build the features
+#            feat = OrderedDict( zip(DENSITY_RESULT_LABELS, hist))
+#            print feat
+##
+#            df = pd.DataFrame([feat])
+#            print df
+##
+#            df = df.reindex_axis(feat.keys(), axis=1) #order seems eroneous
+#            print df
+##
+#            df['index'] = counter
+##
+#            df = df.set_index('index')
+#            print df
+#            sample_result.append(df)
+#            counter+=1
+#        sample= pd.concat(sample_result)
+#        #sample=pd.DataFrame(sample_result)
+#        sample.to_csv("/Users/benjamindartigues/SuperClassTest/pre_result.csv",sep=",")
+#        sample= sample[sample.columns.tolist()].values
+#        print sample
+#        k_means.fit(sample)
+#        classif=k_means.predict(sample)
+#        print classif
+
+############################################################################################
+
+
+
+
+#        result_per_pit=result_per_pit.tail(len(result_per_pit))
+#        sample_result = []
+#        #try to clusterize results
+#        DENSITY_RESULT_BINS=[0,1,2,3]
+#        print DENSITY_RESULT_BINS
+#        DENSITY_RESULT_LABELS = ["HIST_RESULT_%f" % _ for _ in DENSITY_RESULT_BINS[:-1]]
+#        for ROI, data in result_per_pit.groupby('pits'):
+#            hist, bins = np.histogram(data, bins=DENSITY_RESULT_BINS)
+#            #hist = hist/float(hist.sum())
+#
+#        # Build the features
+#            feat = OrderedDict( zip(DENSITY_RESULT_LABELS, hist))
+#            df = pd.DataFrame([feat])
+#            df = df.reindex_axis(feat.keys(), axis=1) #order seems eroneous
+#            
+#            
+#            
+#            df['index'] = ROI
+#            df = df.set_index('index')
+#            sample_result.append(df)
+#        
+#
+#        print sample_result
+#        
+        
