@@ -520,18 +520,16 @@ def compute_max_bin_values(object_df,point_df):
     max_MSD_len=0
 
     for ROI, data in object_df.groupby('ImageNumber'):
-        #Compute Freedman-Diaconis algorithm for MSD_0
+        #Compute Freedman-Diaconis algorithm for MSD_0 and keep the max bin number
         da_global,bins_global = freedman_bin_width(data['Diffusion_Coefficient'], True)
-        #print len(bins_global)
         if len(bins_global) > max_diff_coeff_len:
             max_diff_coeff_len=len(bins_global)
             max_diff_coeff_global=[]
             max_diff_coeff_global.append(bins_global)
 
 
-        #Compute Freedman-Diaconis algorithm for diffusion coefficient
+        #Compute Freedman-Diaconis algorithm for diffusion coefficient and keep the max bin number
         da_global,bins_global = freedman_bin_width(data['MSD_0'], True)
-        #print len(bins_global)
         if len(bins_global) > max_MSD_len:
             max_MSD_len=len(bins_global)
             max_MSD_global=[]
@@ -541,13 +539,11 @@ def compute_max_bin_values(object_df,point_df):
     MSD_MIN=max_MSD_global[0][0]
     MSD_MAX=max_MSD_global[0][max_MSD_len-1]
     MSD_HISTOGRAM_BINS=max_MSD_global[0]
-    #print MSD_HISTOGRAM_BINS
     MSD_HISTOGRAM_LABELS = ["HIST_MSD_%f" % _ for _ in MSD_HISTOGRAM_BINS[:-1]]
 
     DENSITY_MIN=max_diff_coeff_global[0][0]
     DENSITY_MAX=max_diff_coeff_global[0][max_diff_coeff_len-1]
     DENSITY_HISTOGRAM_BINS=max_diff_coeff_global[0]
-    #print DENSITY_HISTOGRAM_BINS
     DENSITY_HISTOGRAM_LABELS = ["HIST_DENSITY_%f" % _ for _ in DENSITY_HISTOGRAM_BINS[:-1]]
     
     
@@ -579,8 +575,7 @@ def compute_max_bin_values(object_df,point_df):
 
 def extract_features_bin_max(object_df,point_df):
     samples = []
-    #features_list=('MSD_0','Diffusion_Coefficient')
-    #counter=0
+
         
     DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS,MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS,DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS=compute_max_bin_values(object_df,point_df)
         
@@ -674,25 +669,20 @@ def extract_features_bin_std(df):
 
         for ROI, data in df.groupby('ImageNumber'):
             #Compute Freedman-Diaconis algorithm for MSD_0
-            print "image number:" + str(ROI)
+            
             da_global,bins_global = freedman_bin_width(data['Diffusion_Coefficient_std'], True)
-            print bins_global
-            print "nombre de bin for Diffusion_Coefficient_std:" + str(len(bins_global))
+
             
             if len(bins_global) > max_diff_coeff_len:
                 max_diff_coeff_len=len(bins_global)
                 max_diff_coeff_global=[]
                 max_diff_coeff_global.append(bins_global)
-                print "nouvelle taille max pour Diffusion_Coefficient_std:"
-                print "###################################################"
-                print bins_global
-                print "###################################################"
+
 
 
             #Compute Freedman-Diaconis algorithm for diffusion coefficient
             da_global,bins_global = freedman_bin_width(data['MSD_0_std'], True)
-            print bins_global
-            print "nombre de bin for MSD_0_std:" + str(len(bins_global))
+
             
             if len(bins_global) > max_MSD_len:
                 max_MSD_len=len(bins_global)
@@ -771,10 +761,7 @@ def extract_features_of_result(df):
 	samples = []
 
 	for ImageNumber, data in df.groupby('ImageNumber'):
-		print "Image Number : "
-		print ImageNumber
-		print "Data : "
-		print data['NbrDinstinTracks']
+
 		nbdata =data['NbrDinstinTracks']
 		
 		hist, bins = np.histogram(nbdata, bins=bins)
