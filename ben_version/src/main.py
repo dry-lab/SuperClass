@@ -20,6 +20,7 @@ if sys.version_info[0] == 3:
     from tkinter import *
     from tkinter import ttk
     from Tkinter.filedialog import *
+    from Tkinter.messagebox import *
 else:
     from Tkinter import *
     from tkFileDialog import *
@@ -28,9 +29,6 @@ else:
     import ttk
 
 
-#from Tkinter.filedialog import *
-#from tkFileDialog import *
-#from tkMessageBox import *
 #from helpers.basics import load_config
 from helpers.logger import Logger
 from visualizeResults import *
@@ -88,8 +86,7 @@ def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_
 
                 if BINNING_TYPE=="freedman_max":
                     samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS=extract_features_bin_max(obj_df,point_df)
-                    #dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
-                    #samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
+
 
                 if BINNING_TYPE=="fixed":
 
@@ -190,10 +187,9 @@ def run_cell_classification_algo(samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_
         
 
 	# Launch the classification procedure on the various extracted features and the various classifiers
-	#distance_scores = {}
+
 	classifier_scores = {}
         classifier_scores_label={}
-	#old_distance_labels= None
 	old_classifier_labels= None
         #for column in ['all']:
 	for column in ['density_hist', 'msd_hist', 'all']: #XXX trajectory_hist removed => we do not have it
@@ -279,9 +275,7 @@ def group_by_condition(samples, groups):
 
     # replace pits by condition
     inline_merge_pits_in_conditions(samples, groups, key='condition')
-    #print"############################## SAMPLES ##################################"
-    #print samples
-    #print"############################## SAMPLES END ##################################"
+
     samples.to_csv("/Users/benjamindartigues/super_class_test/test_pit_merged2new3.csv",sep=",")
 
     assert not np.any(samples['condition'].isnull()), "ATTENTION, the conditions have not been set (verify the groups)"

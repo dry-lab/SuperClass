@@ -19,19 +19,21 @@ MSE_COL = 'MSE'
 
 
 #type of process on data / associated with freedman_all, freedman_max and fixed options
-#PREPROCESSED_MODE='none'
+PREPROCESSED_MODE='none'
 #type of binning method
 #BINNING_TYPE='freedman_all'
 #BINNING_TYPE='freedman_max'
-#BINNING_TYPE='fixed'
+BINNING_TYPE='fixed'
 
 
 
 #type of process on data / associated with freedman_std options
-PREPROCESSED_MODE='standardized'
+#PREPROCESSED_MODE='standardized'
 #type of binning method
 #BINNING_TYPE='freedman_std'
-BINNING_TYPE='freedman_max'
+#BINNING_TYPE='freedman_max'
+
+
 
 
 #headers for Anne file
@@ -66,16 +68,10 @@ PER_POINT_COLS_ANNE = (
     'DinstL'
 )
 
-#type of classification associated with Anne files
-#CLASS_TYPE='unlabeled'
 
-#related files
-#per_image_file="/Users/benjamindartigues/super_class_test/data/per_image_bioinfo_Crosslink240415.csv"
-#per_object_file="/Users/benjamindartigues/super_class_test/data/per_object_bioinfo_Crosslink240415.csv"
-#per_point_file="/Users/benjamindartigues/super_class_test/data/per_point_bioinfo_Crosslink240415.csv"
-#per_image_cols = PER_IMAGE_COLS_ANNE
-#per_object_cols = PER_OBJECT_COLS_ANNE
-#per_point_cols = PER_POINT_COLS_ANNE
+
+
+
 
 
 
@@ -115,7 +111,13 @@ ADDITIONAL_DINST_COLS = (
 'NbrDinstinTracks',
 'Dinst'
 )
+
+
+
+
+#type of classification associated with FIX files
 CLASS_TYPE='labeled'
+
 per_image_file="/Users/benjamindartigues/super_class_test/docTest/per_image_fix.csv"
 per_object_file="/Users/benjamindartigues/super_class_test/docTest/per_object_fix.csv"
 per_point_file="/Users/benjamindartigues/SuperClassTest/docTest/result2.csv"
@@ -124,8 +126,16 @@ per_object_cols = PER_OBJECT_COLS_FIX
 per_point_cols = ADDITIONAL_DINST_COLS
 
 
+#type of classification associated with Anne files
+#CLASS_TYPE='unlabeled'
 
-
+#related files
+#per_image_file="/Users/benjamindartigues/super_class_test/data/per_image_bioinfo_Crosslink240415.csv"
+#per_object_file="/Users/benjamindartigues/super_class_test/data/per_object_bioinfo_Crosslink240415.csv"
+#per_point_file="/Users/benjamindartigues/super_class_test/data/per_point_bioinfo_Crosslink240415.csv"
+#per_image_cols = PER_IMAGE_COLS_ANNE
+#per_object_cols = PER_OBJECT_COLS_ANNE
+#per_point_cols = PER_POINT_COLS_ANNE
 
 
 
