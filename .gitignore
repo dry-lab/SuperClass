@@ -1,0 +1,2 @@
+#Remove PYC files
+*.pyc
