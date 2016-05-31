@@ -40,6 +40,21 @@ from constants import *
 
 
 
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import stats
+
+from sklearn import datasets
+from sklearn.semi_supervised import label_propagation
+
+
+
+
+
+
+
 def inline_merge_pits_in_conditions(samples, groups, key='position'):
     """Merge several pits together in order to be able to says that such group of pits
     correspond to the same kind of experiment
@@ -260,7 +275,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         for i_dataset, dataset in enumerate(datasets):
             
             if i_dataset==len(datasets)-1:
-                #print i_dataset
+                print i_dataset
                 X=samples
                 y=pits
             else:
@@ -355,6 +370,16 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         from sklearn.datasets.samples_generator import make_blobs
         from sklearn.preprocessing import StandardScaler
 
+
+#        ##############################################################################
+#        # Generate sample data
+#        centers = [[1, 1], [-1, -1], [1, -1]]
+#        X, labels_true = make_blobs(n_samples=750, centers=centers, cluster_std=0.4,
+#                                    random_state=0)
+#
+#        X = StandardScaler().fit_transform(X)
+
+        ##############################################################################
         # Compute DBSCAN
         db = DBSCAN(eps=0.3, min_samples=10).fit(samples)
         core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
@@ -445,6 +470,9 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             plt.yticks(())
             plt.show()
         else:
+            
+            #samples = np.concatenate([samples, samples])
+            #pits = np.concatenate([pits, pits], axis=0)
 
             # 2D embedding of the digits dataset
             print("Computing embedding")
@@ -459,6 +487,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                     for linkage in ('average', 'complete'):
 
                         clustering = AgglomerativeClustering(linkage=linkage, n_clusters=4,affinity=metric)
+                        #t0 = time()
                         clf=clustering.fit_predict(X_red)
                         print clf
                         clf_df=pd.DataFrame(clf,index=np.arange(1,len(clf)+1))
@@ -472,6 +501,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                         print "result per pit in kmean function"
                         print result_per_pit
 
+                        #print("%s : %.2fs" % (linkage, time() - t0))
                         x_min, x_max = np.min(X_red, axis=0), np.max(X_red, axis=0)
                         X_red = (X_red - x_min) / (x_max - x_min)
 
@@ -495,7 +525,9 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                     for linkage in ('ward', 'average', 'complete'):
 
                         clustering = AgglomerativeClustering(linkage=linkage, n_clusters=4,affinity=metric)
+                        #t0 = time()
                         clf=clustering.fit_predict(X_red)
+                        print clf
                         clf_df=pd.DataFrame(clf,index=np.arange(1,len(clf)+1))
                         clf_df.columns = ['scores']
 
@@ -507,6 +539,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                         print "result per pit in kmean function"
                         print result_per_pit
 
+                        #print("%s : %.2fs" % (linkage, time() - t0))
                         x_min, x_max = np.min(X_red, axis=0), np.max(X_red, axis=0)
                         X_red = (X_red - x_min) / (x_max - x_min)
 
@@ -523,6 +556,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                         #if title is not None:
                         plt.title(title, size=17)
 
+                        #plt.title("%s metric with %s linkage" % metric,linkage, size=17)
                         plt.axis('off')
                         plt.tight_layout()
 
@@ -530,6 +564,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                     for linkage in ('average', 'complete'):
 
                         clustering = AgglomerativeClustering(linkage=linkage, n_clusters=4,affinity=metric)
+                        #t0 = time()
                         clf=clustering.fit_predict(X_red)
                         print clf
                         clf_df=pd.DataFrame(clf,index=np.arange(1,len(clf)+1))
@@ -543,6 +578,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                         print "result per pit in kmean function"
                         print result_per_pit
 
+                        #print("%s : %.2fs" % (linkage, time() - t0))
                         x_min, x_max = np.min(X_red, axis=0), np.max(X_red, axis=0)
                         X_red = (X_red - x_min) / (x_max - x_min)
 
@@ -563,17 +599,90 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                         plt.tight_layout()
 
             plt.show()
+            
+            
+            
+    # this function is not connected to the data
+    def _label_propagation(self):
         
-        
+        digits = datasets.load_digits()
+        rng = np.random.RandomState(0)
+        indices = np.arange(len(digits.data))
+        rng.shuffle(indices)
+
+        X = digits.data[indices[:330]]
+        y = digits.target[indices[:330]]
+        images = digits.images[indices[:330]]
+
+        n_total_samples = len(y)
+        n_labeled_points = 10
+
+        unlabeled_indices = np.arange(n_total_samples)[n_labeled_points:]
+        f = plt.figure()
+
+        for i in range(5):
+            y_train = np.copy(y)
+            y_train[unlabeled_indices] = -1
+
+            lp_model = label_propagation.LabelSpreading(gamma=0.25, max_iter=5)
+            lp_model.fit(X, y_train)
+
+            predicted_labels = lp_model.transduction_[unlabeled_indices]
+            true_labels = y[unlabeled_indices]
+
+            cm = confusion_matrix(true_labels, predicted_labels,
+                                  labels=lp_model.classes_)
+
+            print('Iteration %i %s' % (i, 70 * '_'))
+            print("Label Spreading model: %d labeled & %d unlabeled (%d total)"
+                  % (n_labeled_points, n_total_samples - n_labeled_points, n_total_samples))
+
+            print(classification_report(true_labels, predicted_labels))
+
+            print("Confusion matrix")
+            print(cm)
+
+            # compute the entropies of transduced label distributions
+            pred_entropies = stats.distributions.entropy(
+                lp_model.label_distributions_.T)
+
+            # select five digit examples that the classifier is most uncertain about
+            uncertainty_index = uncertainty_index = np.argsort(pred_entropies)[-5:]
+
+            # keep track of indices that we get labels for
+            delete_indices = np.array([])
+
+            f.text(.05, (1 - (i + 1) * .183),
+                   "model %d\n\nfit with\n%d labels" % ((i + 1), i * 5 + 10), size=10)
+            for index, image_index in enumerate(uncertainty_index):
+                image = images[image_index]
+
+                sub = f.add_subplot(5, 5, index + 1 + (5 * i))
+                sub.imshow(image, cmap=plt.cm.gray_r)
+                sub.set_title('predict: %i\ntrue: %i' % (
+                    lp_model.transduction_[image_index], y[image_index]), size=10)
+                sub.axis('off')
+
+                # labeling 5 points, remote from labeled set
+                delete_index, = np.where(unlabeled_indices == image_index)
+                delete_indices = np.concatenate((delete_indices, delete_index))
+
+            unlabeled_indices = np.delete(unlabeled_indices, delete_indices)
+            n_labeled_points += 5
+
+        f.suptitle("Active learning with Label Propagation.\nRows show 5 most "
+                   "uncertain labels to learn with the next model.")
+        plt.subplots_adjust(0.12, 0.03, 0.9, 0.8, 0.2, 0.45)
+        plt.show()
     def _k_mean(self,samples,pits):
 
-        print samples
+        #print samples
         n_clusters =4
         k_means = KMeans(init='k-means++', n_clusters=n_clusters, n_init=100)
         k_means.fit(samples)
         k_means_labels = k_means.labels_
 
-        print k_means.labels_
+        #print k_means.labels_
         k_means_cluster_centers = k_means.cluster_centers_
         classif=k_means.predict(samples)
         
@@ -597,22 +706,76 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         pit_df.columns = ['pits']
 
         result_per_pit = pd.concat([classif_df, pit_df], axis=1,verify_integrity=False)
+        #print "result per pit in kmean function"
+        #print result_per_pit
+        #result_per_pit=pd.DataFrame(result_per_pit,index=np.arange(0,len(result_per_pit)))
         self.result = pd.concat([result_per_pit.groupby('pits')['scores'].sum(), result_per_pit.groupby('pits')['scores'].count()], axis=1,verify_integrity=False)
         self.result.columns = ['scores','count']
         self.result.to_csv("/Users/benjamindartigues/SuperClassTest/final_result.csv",sep=",")
+    #result_per_pit.columns = ['pits','scores','count']
         result_per_pit.to_csv("/Users/benjamindartigues/SuperClassTest/pre_result_simple_k_means_freedman.csv",sep=",")
-
+        #print result_per_pit.reindex(range(119))
+        #print result_per_pit[:1]
         
         result_per_pit= result_per_pit[['scores','pits']].values
         result_per_pit_df=pd.DataFrame(result_per_pit,index=np.arange(len(result_per_pit)))
         result_per_pit_df.columns =['scores','pits']
+        #result_per_pit_df = result_per_pit_df.set_index('index')
         
         grouped = result_per_pit_df.groupby('pits')
         
         for pit,cluster in grouped:
             print cluster
         print result_per_pit_df
-
+        
+        ############################################################################################
+                #try to clusterize results
+        ############################################################################################
+#        
+#        DENSITY_RESULT_BINS=[0,1,2,3,4,5]
+#        #print DENSITY_RESULT_BINS
+#        DENSITY_RESULT_LABELS = ["HIST_RESULT_%d" % _ for _ in DENSITY_RESULT_BINS]
+#        #print DENSITY_RESULT_LABELS
+#        sample_result=[]
+#        counter=1
+#        for ROI, data in result_per_pit_df.groupby('pits'):
+#            print data['scores']
+#            print ROI
+##            #print ROI
+#            hist, bins = np.histogram(data['scores'], bins=DENSITY_RESULT_BINS)
+##            
+##            #hist = hist/float(hist.sum())
+##            #print hist
+##        # Build the features
+#            feat = OrderedDict( zip(DENSITY_RESULT_LABELS, hist))
+#            print feat
+##
+#            df = pd.DataFrame([feat])
+#            print df
+##
+#            df = df.reindex_axis(feat.keys(), axis=1) #order seems eroneous
+#            print df
+##
+#            df['index'] = counter
+##
+#            df = df.set_index('index')
+#            print df
+#            sample_result.append(df)
+#            counter+=1
+#        sample= pd.concat(sample_result)
+#        #sample=pd.DataFrame(sample_result)
+#        sample.to_csv("/Users/benjamindartigues/SuperClassTest/pre_result.csv",sep=",")
+#        sample= sample[sample.columns.tolist()].values
+#        print sample
+#        k_means.fit(sample)
+#        classif=k_means.predict(sample)
+#        #classif=k_means.fit_predict(sample)
+#        print classif
+        ############################################################################################
+                #try to clusterize results end
+        ############################################################################################
+        
+        
         ############################################################################################
         # Compute clustering with MiniBatchKMeans
         ############################################################################################
@@ -644,8 +807,20 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         result_per_pit = pd.concat([classif_df, pit_df], axis=1,verify_integrity=False)
         print "result per pit in Mini Batch KMeans function"
         print result_per_pit
-        #result_per_pit.to_csv("/Users/benjamindartigues/SuperClassTest/pre_result_batch_k_means_freedman.csv",sep=",")
+        result_per_pit.to_csv("/Users/benjamindartigues/SuperClassTest/pre_result_batch_k_means_freedman.csv",sep=",")
 
+        result_per_pit= result_per_pit[['scores','pits']].values
+        result_per_pit_df=pd.DataFrame(result_per_pit,index=np.arange(len(result_per_pit)))
+        result_per_pit_df.columns =['scores','pits']
+        #result_per_pit_df = result_per_pit_df.set_index('index')
+        
+        grouped = result_per_pit_df.groupby('pits')
+        
+        for pit,cluster in grouped:
+            print cluster
+        print result_per_pit_df
+        ##############################################################################
+        # Plot result
 
         fig = plt.figure(figsize=(8, 3))
         fig.subplots_adjust(left=0.02, right=0.98, bottom=0.05, top=0.9)
@@ -689,13 +864,31 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                  (t_mini_batch, mbk.inertia_))
         
     
-        #plt.show()
+        plt.show()
     def _spectral_clustering(self,samples):
         if sp_version < (0, 12):
             raise SkipTest("Skipping because SciPy version earlier than 0.12.0 and "
                    "thus does not include the scipy.misc.face() image.")
 
 
+        # load the raccoon face as a numpy array
+#        try:
+#            face = sp.face(gray=True)
+#            print "first face"
+#            print face
+#        except AttributeError:
+#            # Newer versions of scipy have face in misc
+#            from scipy import misc
+#            face = misc.face(gray=True)
+#            print "first face"
+#            print face
+
+        # Resize it to 10% of the original size to speed up the processing
+#        face = sp.misc.imresize(face, 0.10) / 255.
+#        print "second face"
+#        print face
+        # Convert the image into a graph with the value of the gradient on the
+        # edges.
         graph = image.img_to_graph(samples)
 
 
@@ -721,7 +914,9 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             sample.to_csv("/Users/benjamindartigues/SuperClassTest/spectral_result.csv",sep=",")
             t1 = time.time()
             #classif=labels.fit(samples)
-
+            #print classif
+            print labels
+            print sample
             
             labels = labels.reshape(samples.shape)
 
@@ -741,16 +936,39 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
     def _compute_comparison_scores_unlabeled(self):
         """Compute the scores, thanks to cross validation"""
 
+        # Generate sample data
+        #print"########### initial samples "
         samples = self._data
+        
+        samples.to_csv("/Users/benjamindartigues/SuperClassTest/new_result_with_wave_tracer.csv",sep=",")
+
+        
+        #print "samples before classification"
+        #print samples
+        #print samples
         pits=samples['pit']
+       
+        #print pits
         columns = samples.columns.tolist()
+        
+        #print"########### sample columns"
+        #print columns
         for column in ['pit', 'position', 'condition']:
             if column in columns:
                 del columns[columns.index(column)] 
+        #print samples
         samples = samples[columns].values
         
-        #choose between different algorithm
-        self._k_mean(samples, pits)
+        #print"########### sample values"
+        #print samples
+        
+        
+        
+        
+        #self._k_mean(samples, pits)
+        
+        
+        self._label_propagation()
         #self._agglomerative_clustering(samples,pits,'unstructured')
         #self._spectral_clustering(samples)
         #self._dbscan(samples,pits)
@@ -763,6 +981,14 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
 
 
         samples = self._data
+        samples2=samples
+        
+        samples.to_csv("/Users/benjamindartigues/SuperClassTest/sample_before_classification.csv",sep=",")
+
+
+        #print"########### samples"
+        #print samples
+
         
         # make a transformation of the labels
         labels = samples[key].values
@@ -775,11 +1001,18 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             labels[labels=='LIVING'] = +1
             labels[labels=='FIXED'] = -1
         else:
-            warnings.warn("We use several labels and it has not been deeply tested")
-
+            #warnings.warn("We use several labels and it has not been deeply tested")
+            labels[labels=='condition1'] = 1
+            labels[labels=='condition2'] = 2
+            labels[labels=='condition3'] = 3
+            labels[labels=='condition4'] = 4
+            #print labels
+        #print"########### LABELS"
+        #print labels
         # get the columns of interest
         columns = samples.columns.tolist()
-
+        #print"########### columns"
+        #print columns
         for column in ['pit', 'position', 'condition']:
             if column in columns:
                 del columns[columns.index(column)] 
@@ -787,26 +1020,34 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         # We have few elements => use a leave one out method
         values = samples[columns].values
 
+        
+        #print"########### values"
+        #print values
+
         scores = np.zeros(len(values))
         scores_label=np.zeros(len(values))
         loo = LeaveOneOut(len(values))
-
+        #print loo
+        #logging.info('Number of samples: ' + str(len(values)))
         logging.info('Classifier: %s' , self._selected_classifier)
 
 
         
         for train, test in loo:
             
-
+            
+            #print train 
+            #print test
 
             # Get the partitions
             samples_train = values[train]
             samples_test = values[test].reshape(1,  - 1)
+            print samples_test
             labels_train = labels[train]
-            
-            labels_test = labels[test]#.reshape(1,  - 1)
-            labels_test=np.array(labels_test)
+            labels_test = labels[test]
+            logging.info("label to found before running classification" + str(labels[test]))
 
+            logging.info("value to test to found before running classification" + str(values[test]))
 
             
             # Normalize data when KNN is not used (ie. metric with histo comparison)
@@ -814,6 +1055,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                 scaler = StandardScaler().fit(samples_train)                
                 samples_train = scaler.transform(samples_train)
                 samples_test = scaler.transform(samples_test)
+                #samples_test = np.array(samples_test).reshape((len(samples_test)-1, 1))
 
             if self._selected_classifier in ('SVC-PCA', 'RF-PCA'):
                 decomposition = PCA().fit(samples_train)
@@ -824,22 +1066,29 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             if self._selected_classifier.startswith('SVC'):
                 clf = SVC(probability=True)
                 clf.fit(samples_train, labels_train.tolist())
-
+                #logging.info("SVC sample test control label :" + str(labels[test]))
+                #logging.info("SVC sample test predicted label :" + str(clf.predict(samples_test)))
+                
+            
             elif self._selected_classifier.startswith('RF'):
                 clf = RandomForestClassifier(n_jobs=-1)
                 clf.fit(samples_train, labels_train.tolist())
-   
+                #logging.info("RF sample test control label :" + str(labels[test]))
+                #logging.info("RF sample test predicted label :" + str(clf.predict(samples_test)))
+
+            
             elif self._selected_classifier.startswith('KNN_EUCL'):
                 clf = KNeighborsClassifier(metric='minkowski', p=2)
                 clf.fit(samples_train, labels_train.tolist())
-
+                #logging.info("KNN eucl sample test control label :" + str(labels[test]))
+                #logging.info("KNN eucl  sample test predicted label :" + str(clf.predict(samples_test)))
+            
             elif self._selected_classifier.startswith('KNN_CHI2'):
-                logging.info('selected_classifier.startswith(KNN_CHI2)')
-                
+                logging.info('selected classifier KNN_CHI2')
                 clf = KNeighborsClassifier(metric=additive_chi2_kernel)
-                logging.info('selected_classifier.startswith(KNN_CHI2)')
-
+                #print labels_train.tolist()
                 clf.fit(samples_train, labels_train.tolist())
+                #print samples_train
                 
                 logging.info("KNN chi2 sample test control label :" + str(labels[test]))
                 logging.info("KNN chi2  sample test predicted label :" + str(clf.predict(samples_test)))
@@ -847,18 +1096,58 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             # make the classification
             # XXX Hack to see if it is multiclass or not
             if 2 == len(np.unique(labels_train)) :
+                #logging.info('1 clf.predict_proba(samples_test)[:,-1]')
                 score = clf.predict_proba(samples_test)[:,-1]
+                #print clf.predict(samples_test)[:,-1]
                 score_label = clf.predict(samples_test)
-
+                #logging.info('2 clf.predict_proba(samples_test)[:,-1]')
+                #print score
+                #print labels_test
 
             else:
-                score = clf.predict(samples_test)
+                score = clf.predict_proba(samples_test)
+                score_label = clf.predict(samples_test)
+                
+                
+                
+                
+                
+                
             scores[test] = score
             scores_label[test] = score_label
-
+            
+            #counter+=1
 
         self._scores = scores
         self._scores_label=scores_label
+        pits=samples2['pit']
+        classif_df=pd.DataFrame(scores_label,index=np.arange(1,len(scores_label)+1))
+        classif_df.columns = ['scores']
+
+        pit_df=pd.DataFrame(pits,index=np.arange(1,len(pits)+1))
+        pit_df.columns = ['pits']
+
+        result_per_pit = pd.concat([classif_df, pit_df], axis=1,verify_integrity=False)
+        #print "result per pit in kmean function"
+        #print result_per_pit
+        #result_per_pit=pd.DataFrame(result_per_pit,index=np.arange(0,len(result_per_pit)))
+        self.result = pd.concat([result_per_pit.groupby('pits')['scores'].sum(), result_per_pit.groupby('pits')['scores'].count()], axis=1,verify_integrity=False)
+        self.result.columns = ['scores','count']
+        self.result.to_csv("/Users/benjamindartigues/SuperClassTest/final_result.csv",sep=",")
+    #result_per_pit.columns = ['pits','scores','count']
+        result_per_pit.to_csv("/Users/benjamindartigues/SuperClassTest/pre_result_simple_k_means_freedman.csv",sep=",")
+        #print result_per_pit.reindex(range(119))
+        #print result_per_pit[:1]
+
+        result_per_pit= result_per_pit[['scores','pits']].values
+        result_per_pit_df=pd.DataFrame(result_per_pit,index=np.arange(len(result_per_pit)))
+        result_per_pit_df.columns =['scores','pits']
+        #result_per_pit_df = result_per_pit_df.set_index('index')
+
+        grouped = result_per_pit_df.groupby('pits')
+
+        for pit,cluster in grouped:
+            print cluster
         #print scores
         #print scores_label
         self._true_labels = labels

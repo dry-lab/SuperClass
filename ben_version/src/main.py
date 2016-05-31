@@ -3,7 +3,7 @@
 __user__ = 'mmluqman'
 __author__ = "Muhammad Muzzamil LUQMAN"
 __copyright__ = ["Copyright 2015, CBiB", "Project SuperClass"]
-__credits__ = ["Muhammad Muzzamil LUQMAN", "Romain GIOT"]
+__credits__ = ["Muhammad Muzzamil LUQMAN", "Romain GIOT", "Emmanuel Bouilhol, Benjamin Dartigues"]
 __license__ = "GPL"
 __version__ = "0.0"
 __maintainer__ = "Muhammad Muzzamil LUQMAN"
@@ -11,24 +11,11 @@ __email__ = 'mmluqman@u-bordeaux.fr'
 __status__ = 'Prototype'
 
 import os
-import sys
 import pandas as pd
-
-
-
-if sys.version_info[0] == 3:
-    from tkinter import *
-    from tkinter import ttk
-    from Tkinter.filedialog import *
-    from Tkinter.messagebox import *
-else:
-    from Tkinter import *
-    from tkFileDialog import *
-    from tkMessageBox import *
-    from Tkinter import *
-    import ttk
-
-
+from Tkinter import *
+#from Tkinter.filedialog import *
+from tkFileDialog import *
+from tkMessageBox import *
 #from helpers.basics import load_config
 from helpers.logger import Logger
 from visualizeResults import *
@@ -58,7 +45,7 @@ logger.addHandler(ch)
      
 def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_cols, per_point_file,per_point_cols, groups, remove_pits=None):
 	"""Launch the experiment on the dataset of interest."""
-	logger.info("Successfully launch experiment ")
+	#logger.info("Successfully launch experiment ")
 
 	# Read the data files
 	img_df = pd.read_csv(per_image_file, names=per_image_cols, header=None, sep=',', low_memory=False)
@@ -68,12 +55,15 @@ def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_
         global samples
         
         if CLASS_TYPE=='unlabeled':
-            if PREPROCESSED_MODE=="standardized":##
+            if PREPROCESSED_MODE=="normalized":##
 
                 obj_df=preprocess_object_data(obj_df)
-                point_df=preprocess_point_data(point_df)
+                #point_df=preprocess_dinst_data(point_df)
+                point_df=preprocess_dinstL_data(point_df)
                 samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS=extract_features_bin_std(obj_df)
-                dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
+                #dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
+                #dinst,DINST_HISTOGRAM_LABELS=extract_dinstL_features(point_df)
+                dinst,DINST_HISTOGRAM_LABELS=extract_wave_tracer_features(point_df)
                 samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
 
 
@@ -86,7 +76,8 @@ def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_
 
                 if BINNING_TYPE=="freedman_max":
                     samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS=extract_features_bin_max(obj_df,point_df)
-
+                    #dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
+                    #samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
 
                 if BINNING_TYPE=="fixed":
 
@@ -94,17 +85,26 @@ def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_
         else:
             
             
-            if PREPROCESSED_MODE=="standardized":##
+            if PREPROCESSED_MODE=="normalized":##
                 DINST_MIN=10e-5
                 DINST_MAX=2.5
                 DINST_HISTOGRAM_BINS=np.linspace(DINST_MIN, DINST_MAX, num=20)
                 DINST_HISTOGRAM_LABELS=["HIST_DINST_%f" % _ for _ in DINST_HISTOGRAM_BINS[:-1]] 
                 obj_df=preprocess_object_data(obj_df)
-                #point_df=preprocess_point_data(point_df)
+                
+                
+                
+                
                 #point_df.to_csv("/Users/benjamindartigues/SuperClassTest/pointdf_std.csv",sep=",")
 
                 #dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
                 samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS=extract_features_bin_std(obj_df)
+                
+                #this part works only with Anne datasets
+                point_df=preprocess_dinst_data(point_df)
+                dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
+                #dinst,DINST_HISTOGRAM_LABELS=extract_wave_tracer_features(point_df)
+                samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
                 #dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
                 #samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
 
@@ -131,7 +131,7 @@ def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_
         samples["pit"] = pits 
         
         # XXX Add this for compatibility with previous code
-        samples.to_csv("/Users/benjamindartigues/SuperClassTest/sample_file_before_classification_std.csv",sep=",")
+        #samples.to_csv("/Users/benjamindartigues/SuperClassTest/sample_file_before_classification_std.csv",sep=",")
         #dinst.to_csv("/Users/benjamindartigues/super_class_test/DINSTtest_pit_mergednew.csv",sep=",")
 
 	# Remove the pits which are not interested
@@ -150,6 +150,7 @@ def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_
             group_by_condition(samples,groups)            
             run_cell_classification_algo(samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
         else:  
+            
             run_unsupervised_cell_classification_algo(samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
 	
 
@@ -187,9 +188,10 @@ def run_cell_classification_algo(samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_
         
 
 	# Launch the classification procedure on the various extracted features and the various classifiers
-
+	#distance_scores = {}
 	classifier_scores = {}
         classifier_scores_label={}
+	#old_distance_labels= None
 	old_classifier_labels= None
         #for column in ['all']:
 	for column in ['density_hist', 'msd_hist', 'all']: #XXX trajectory_hist removed => we do not have it
@@ -248,17 +250,26 @@ def run_cell_classification_algo(samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_
                 
 	else:
 		for classifier_name in classifier_scores:
-			print(classifier_name)
-			print(classification_report(classifier_labels, classifier_scores[classifier_name]))
-
-			cm = confusion_matrix(classifier_labels, classifier_scores[classifier_name])
-			cm = cm / np.sum(cm, axis=1).astype(float)
-			plt.matshow(cm, vmin=0, vmax=1)
-			plt.title('Confusion matrix')
-			plt.colorbar()
-			plt.ylabel('True label')
-			plt.xlabel('Predicted label')
-			plt.title(classifier_name)
+			#print(classifier_name)
+			#print(classification_report(classifier_labels, classifier_scores[classifier_name]))
+                        print classifier_name 
+			print classifier_scores[classifier_name]
+                        print classifier_scores_label[classifier_name]
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+#			cm = confusion_matrix(classifier_labels, classifier_scores[classifier_name])
+#			cm = cm / np.sum(cm, axis=1).astype(float)
+#			plt.matshow(cm, vmin=0, vmax=1)
+#			plt.title('Confusion matrix')
+#			plt.colorbar()
+#			plt.ylabel('True label')
+#			plt.xlabel('Predicted label')
+#			plt.title(classifier_name)
 
 	plt.show()
         fig.savefig('/Users/benjamindartigues/super_class_test/src/roc_curve.pdf',dpi=fig.dpi)
@@ -275,7 +286,9 @@ def group_by_condition(samples, groups):
 
     # replace pits by condition
     inline_merge_pits_in_conditions(samples, groups, key='condition')
-
+    #print"############################## SAMPLES ##################################"
+    #print samples
+    #print"############################## SAMPLES END ##################################"
     samples.to_csv("/Users/benjamindartigues/super_class_test/test_pit_merged2new3.csv",sep=",")
 
     assert not np.any(samples['condition'].isnull()), "ATTENTION, the conditions have not been set (verify the groups)"
@@ -289,14 +302,17 @@ def group_by_condition(samples, groups):
 
     # exchange the condition label by an idx
     # If there are more than 2 conditions (living/fixed to check)
-    if nb_conditions > 2:	
-        condition_to_num = {}
-        num_to_condition = {}
-        for condition in np.unique(samples['condition']):
-            condition_to_num[condition] = len(condition_to_num)
-            num_to_condition[ condition_to_num[condition]] = condition
-            samples['condition'] = samples['condition'].apply(lambda x: condition_to_num[x])
-           
+#    if nb_conditions > 2:	
+#        condition_to_num = {}
+#        num_to_condition = {}
+#        for condition in np.unique(samples['condition']):
+#            print condition
+#            print len(condition_to_num)
+#            condition_to_num[condition] = len(condition_to_num)
+#            num_to_condition[condition_to_num[condition]] = condition
+#            samples['condition'] = samples['condition'].apply(lambda x: condition_to_num[x])
+#    samples.to_csv("/Users/benjamindartigues/super_class_test/test_pit_merged2new4.csv",sep=",")
+      
 
 if __name__ == "__main__":
     samples=[]
@@ -307,7 +323,7 @@ if __name__ == "__main__":
                 per_object_cols,
 		per_point_file,
                 per_point_cols,
-		groups)
+		groups2)
 
 
 
