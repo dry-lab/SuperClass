@@ -60,8 +60,8 @@ def launch_experiment(classification_mode, per_image_file, per_image_cols,per_ob
             point_df=preprocess_dinstL_data(point_df)
             samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS=extract_features_bin_std(obj_df)
             # dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
-            dinst,DINST_HISTOGRAM_LABELS=extract_dinstL_features(point_df)
-            # dinst,DINST_HISTOGRAM_LABELS=extract_wave_tracer_features(point_df)
+            # dinst,DINST_HISTOGRAM_LABELS=extract_dinstL_features(point_df)
+            dinst,DINST_HISTOGRAM_LABELS=extract_wave_tracer_features(point_df)
             samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
 
         else:
@@ -117,12 +117,15 @@ def launch_experiment(classification_mode, per_image_file, per_image_cols,per_ob
 
     pits = associate_pit_to_samples(samples, img_df)
     samples["pit"] = pits 
-    print samples
-    exit()
-        
-    # XXX Add this for compatibility with previous code
-    # samples.to_csv(os.path.join(OUTPUT_DIR, "sample_file_before_classification_std.csv"),sep=",")
-    # dinst.to_csv(os.path.join(OUTPUT_DIR, "DINSTtest_pit_mergednew.csv"),sep=",")
+
+
+    imageOrPit = "pit"
+    if imageOrPit =="pit":
+        #------------------------------------------------------------ classif per pit
+        samples_per_pit = samples.groupby('pit')
+        samples_per_pit=samples_per_pit.aggregate(np.median)
+        print samples_per_pit
+        samples=samples_per_pit
 
 
     # Remove the pits which are not interested
@@ -137,17 +140,21 @@ def launch_experiment(classification_mode, per_image_file, per_image_cols,per_ob
             # really remove them
             samples = samples[~idx_to_remove]
     samples.to_csv(os.path.join(OUTPUT_DIR, "sample_file_before_classification_std.csv"),sep=",")
+
     if classification_mode == 'supervised':
         group_by_condition(samples,groups)
         run_cell_classification_algo(classification_mode, samples, DENSITY_HISTOGRAM_LABELS, MSD_HISTOGRAM_LABELS, DINST_HISTOGRAM_LABELS)
     else:  
-        run_unsupervised_cell_classification_algo(classification_mode, samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
+        run_unsupervised_cell_classification_algo(classification_mode, samples, DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
+        # run_unsupervised_cell_classification_algo(classification_mode, samples_per_pit, DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
 
 
 def run_unsupervised_cell_classification_algo(classification_mode, samples, DENSITY_HISTOGRAM_LABELS, MSD_HISTOGRAM_LABELS, DINST_HISTOGRAM_LABELS):
     #button_unsupervised_run.configure(state=DISABLED)
     classifier_scores = {}
-    features=['density_hist','msd_hist','all','diff_hist']
+    # features=['density_hist','msd_hist','all','diff_hist']
+    features=['density_hist','msd_hist']
+
     for column in ['all']: #features : #['diff_hist']:
         classifier = DensityHistoClassifier(
                 samples,
@@ -308,7 +315,8 @@ def group_by_condition(samples, groups):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "khc:o:i:p", ["nclusters","help", "classification", "output=", "input=", "process"])
+        opts, args = getopt.getopt(sys.argv[1:], "khc:o:i:pj", ["nclusters","help", "classification", "output=", "input=", "process","imageOrPit"])
+        print sys.argv[1:]
     except getopt.GetoptError as err:
         # print help information and exit:
         print str(err)  # will print something like "option -a not recognized"
@@ -320,25 +328,62 @@ def main():
     global CACHE_DIR
     global INPUT_DIR
     global PREPROCESSED_MODE
+    global imageOrPit
+
+    print opts
+    print "ARGS"
+    print args
 
     classification_mode = "supervised"
     for o, a in opts:
+        print o + " : " + a
         if o in ("-k", "--nclusters"):
             N_CLUSTERS = a
+            print a
         elif o in ("-c", "--classification"):
             classification_mode = a
+            print a
         elif o in ("-h", "--help"):
             usage()
             sys.exit()
         elif o in ("-o", "--output"):
+            print a
             OUTPUT_DIR = a
             CACHE_DIR = os.path.join(OUTPUT_DIR, "cache/")
         elif o in ("-i", "--input"):
+            print a
             INPUT_DIR = a
         elif o in ("-p", "--process"):
             PREPROCESSED_MODE = a
+            print a
+        elif o in ("-j", "--imageOrPit"):
+            print a
         else:
             assert False, "unhandled option" 
+
+
+        # parser = argparse.ArgumentParser(description='Description of your program')
+
+        # parser.add_argument('-k','--foo', help='Description for foo argument', required=True)
+        # parser.add_argument('-b','--bar', help='Description for bar argument', required=True)
+        # parser.add_argument('-f','--foo', help='Description for foo argument', required=True)
+        # parser.add_argument('-b','--bar', help='Description for bar argument', required=True)
+        # parser.add_argument('-f','--foo', help='Description for foo argument', required=True)
+        # parser.add_argument('-b','--bar', help='Description for bar argument', required=True)
+
+
+        # args = vars(parser.parse_args())
+
+
+
+        # if args['foo'] == 'Hello':
+        #     # code here
+
+        # if args['bar'] == 'World':
+        #     # code here
+
+
+
 
     # sys.stdout.write("N CLUSTERS : ")
     # sys.stdout.write(N_CLUSTERS)

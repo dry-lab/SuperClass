@@ -24,6 +24,7 @@ INPUT_DIR=""
 CACHE_DIR =""
 PREPROCESSED_MODE='normalized'
 BINNING_TYPE='freedman_std'
+# imageOrPit="pit"
 
 
 #headers for Anne file

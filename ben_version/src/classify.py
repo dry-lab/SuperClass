@@ -993,9 +993,13 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
 
         
         #print "samples before classification"
-        #print samples
-        #print samples
-        pits=samples['pit']
+        # print samples
+        # print samples.index.tolist()
+        imageOrPit= "pit"
+        if imageOrPit =="pit":
+            pits=samples.index.tolist()
+        else : 
+            pits=samples['pit']
        
         #print pits
         columns = samples.columns.tolist()
