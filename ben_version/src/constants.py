@@ -8,6 +8,7 @@ Longer summary
 
 # imports
 import numpy as np
+import os
 
 
 # Columns to read in the CSV file
@@ -17,8 +18,12 @@ DENSITY_COL = 'D(µm²/s)'
 MSD_COL = 'MSD(0)'
 MSE_COL = 'MSE'
 
-
-
+N_CLUSTERS = 4
+OUTPUT_DIR=""
+INPUT_DIR=""
+CACHE_DIR =""
+PREPROCESSED_MODE='normalized'
+BINNING_TYPE='freedman_std'
 
 
 #headers for Anne file
@@ -54,11 +59,6 @@ PER_POINT_COLS_ANNE = (
 )
 
 ##type of classification associated with Anne files
-CLASS_TYPE='unlabeled'
-#related files
-per_image_file="/Users/benjamindartigues/super_class_test/data/per_image_bioinfo_Crosslink240415.csv"
-per_object_file="/Users/benjamindartigues/super_class_test/data/per_object_bioinfo_Crosslink240415.csv"
-per_point_file="/Users/benjamindartigues/super_class_test/data/per_point_bioinfo_Crosslink240415.csv"
 per_image_cols = PER_IMAGE_COLS_ANNE
 per_object_cols = PER_OBJECT_COLS_ANNE
 per_point_cols = PER_POINT_COLS_ANNE
@@ -101,7 +101,6 @@ ADDITIONAL_DINST_COLS = (
 'NbrDinstinTracks',
 'Dinst'
 )
-#CLASS_TYPE='labeled'
 #per_image_file="/Users/benjamindartigues/super_class_test/docTest/per_image_fix.csv"
 #per_object_file="/Users/benjamindartigues/super_class_test/docTest/per_object_fix.csv"
 #per_point_file="/Users/benjamindartigues/SuperClassTest/docTest/result2.csv"

@@ -66,14 +66,14 @@ def btn_load_data():
 
 
 	launch_experiment(
+		classification_mode,
 		per_image_file,
                 per_image_cols,
 		per_object_file, 
                 per_object_cols,
 		per_point_file,
                 per_point_cols,
-		groups,
-                CLASS_TYPE)
+		groups)
 
 
 #old main for interface

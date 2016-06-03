@@ -22,18 +22,18 @@ pd.options.mode.chained_assignment = None
 from pandas.tools.plotting import scatter_matrix, andrews_curves
 from astropy.visualization import hist
 from joblib import Memory, Parallel, delayed
+from array import array
+
+from outliers import smirnov_grubbs as grubbs
 
 from constants import *
 #Cache folder
-#CACHE_DIR = '/mnt/data/results/BIC/cache'
-CACHE_DIR= '/Users/benjamindartigues/SuperClassTest/cache'
 
-if not os.path.exists(CACHE_DIR):
-	logging.error('Cache directory [%s] does not exists!\n Use /tmp insted' % CACHE_DIR)
-	CACHE_DIR = '/tmp'
+# if not os.path.exists(CACHE_DIR):
+#     logging.error('Cache directory [%s] does not exists!\n Use /tmp insted' % CACHE_DIR)
+#     CACHE_DIR = '/tmp'
 
-
-memory = Memory(cachedir=CACHE_DIR, verbose=True)
+# memory = Memory(cachedir=CACHE_DIR, verbose=True)
 
 def extract_slot_features(folder, expname):
 	"""Extract the features from the files of the folder.
@@ -70,7 +70,7 @@ def extract_slot_features(folder, expname):
 
 
 
-@memory.cache
+# @memory.cache
 def extract_trajectory_features(traj_fname):
 	"""Read the trajectory file and extract its histogram
 	
@@ -248,7 +248,7 @@ def generate_mse_feature_vector(mse):
 
 
 
-@memory.cache
+# @memory.cache
 def extract_diffusion_coefficient_features(coeff_fname):
 	"""Read the diffusion coefficient and build the appropriate histogram.
 
@@ -482,62 +482,68 @@ def generate_dinst_feature_vector(dinst,DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS
  
                    
 def extract_wave_tracer_features(df): 
-    samples = []
-    tmp_samples = []
-    data_df=pd.DataFrame()
-    #data_df.columns = ['total_movement']
-    #data_df.columns = ['ImageNumber']
+
+    df_columns = ['ImageNumber', 'total_movement']
+    dataTab_noOutliers = pd.DataFrame()
+    data_df = pd.DataFrame()
+    global_df = pd.DataFrame()
+    samples = vec = dfRes= []
+    total_length=0
+
+    # print "SIZE BEFORE GRUBBS : " + str(len(df.index))
+    # print "MAX TRAJECTORY SIZE (bfg): "+str(df['total_movement'].max())
+
     if BINNING_TYPE=="freedman_std":
         for ROI,data in df.groupby('ImageNumber'):
-            #print ROI
-            
+            dataTab = []
             for ROI2,data2 in data.groupby('WaveTracerID'):
-                #print data2['WaveTracerID'].sum()
-                #tmp_samples.append(data2['WaveTracerID'].sum())
-                data_df.loc['total_movement'].append(len(data2['WaveTracerID']))
-                data_df.loc['ImageNumber'].append(ROI)
+                dataTab.append(len(data2['WaveTracerID']))
+            print ROI
+            # data4grubbs = np.array(dataTab)
+            data4grubbs = pd.Series(dataTab)
+            total_length+=len(data4grubbs.index)
 
-                #tmp_samples.append(len(data2['WaveTracerID']))
-            
-       # data_df=pd.DataFrame(tmp_samples)
-        
-       # data_df.columns = ['total_movement']
-        #data_df=dpre
-        print data_df
+            grubbsResult=grubbs.test(data4grubbs, alpha=0.05)
+            # grubbsResult = data4grubbs[data4grubbs < data4grubbs.quantile(.95)]
+            # grubbsResult = data4grubbs
+
+            vec = len(grubbsResult)*[ROI]
+            dataTab_noOutliers = pd.DataFrame({'ImageNumber' : vec, 'total_movement' : grubbsResult.tolist()})
+            data_df= data_df.append(dataTab_noOutliers, ignore_index=True)
+
+
+        # print data_df
+        # globalScores = data_df[data_df['total_movement']< data_df['total_movement'].quantile(.95) ]
+        # print globalScores
+
+        # data_df.to_csv(os.path.join(OUTPUT_DIR, "dinstDistribution.csv"),sep=",")
+        print "SIZE BEFORE GRUBBS : " + str(total_length)
+        print "SIZE AFTER GRUBBS : "+str(len(data_df.index))
+        print "TRAJECTORY REMOVED : "+str(total_length-len(data_df.index))
+        print "TRAJECTORY Keeped : "+str((len(data_df.index)*100)/total_length)+"%"
+        # print "MAX TRAJECTORY SIZE (afg): "+str(data_df['total_movement'].max())
+        data_df['total_movement'].plot(kind='line')
+
         da_global,bins_global = freedman_bin_width(data_df['total_movement'], True)
         DINST_MIN=bins_global[0]
         DINST_MAX=bins_global[len(bins_global)-1]
         DINST_HISTOGRAM_BINS=bins_global
         DINST_HISTOGRAM_LABELS = ["HIST_DINST_%f" % _ for _ in DINST_HISTOGRAM_BINS[:-1]]
         print DINST_HISTOGRAM_LABELS
-        
-        
-        for ROI,data in df.groupby('ImageNumber'):
-            #print ROI
-            tmp_samples = []
-            for ROI2,data2 in data.groupby('WaveTracerID'):
-                
-                #print data2['WaveTracerID']
-                tmp_samples.append(len(data2['WaveTracerID']))
-                #tmp_samples.append(data2['WaveTracerID'])
-              
-            #print tmp_samples 
-            new_df=pd.DataFrame(tmp_samples)
-            new_df.columns = ['total_movement']
-            #print new_df
-            dinst_features = generate_feature_vector(new_df['total_movement'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
+
+
+        for ROI, data in data_df.groupby('ImageNumber'):
+            dinst_features = generate_feature_vector(data['total_movement'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
             dinst_features['index'] = ROI
             dinst_features = dinst_features.set_index('index')
             samples.append(dinst_features)
-        
-        
-                
-        
+
+
+        # print samples
+        pd.concat(samples).to_csv(os.path.join(OUTPUT_DIR, "samplesWaveTracer.csv"),sep=",")
     return (pd.concat(samples),DINST_HISTOGRAM_LABELS)
-               #print data_tracer
-            
-        
-                   
+
+
 def extract_dinst_features(df):
     samples = []
     DINST_MIN=10e-5
@@ -594,13 +600,10 @@ def extract_dinstL_features(df):
         
     return (pd.concat(samples),DINST_HISTOGRAM_LABELS)
 
-
+##normalisation
 def preprocess_object_data(df):
 
     grouped=df.groupby('ImageNumber')
-    #print df.groupby('ImageNumber')['Diffusion_Coefficient'].mean()
-    #print df.groupby('ImageNumber')['Diffusion_Coefficient'].std()
-
     zscore = lambda x: (x - x.mean()) / x.std()
 
     transformed_DC = grouped['Diffusion_Coefficient'].transform(zscore)  
@@ -613,56 +616,43 @@ def preprocess_object_data(df):
     MSD_std.columns = ['MSD_0_std']
     df=pd.concat([df, DC_std], axis=1,verify_integrity=False)
     df=pd.concat([df, MSD_std], axis=1,verify_integrity=False)
-    
-    
     return df
+
+
 def preprocess_total_mov_data(df):
     
-    
+    grouped=df.groupby('ImageNumber')
+    zscore = lambda x: (x - x.mean()) / x.std()
+    transformed_Dinst = grouped['total_movement'].transform(zscore)  
+    Dinst_std = pd.DataFrame(transformed_Dinst)
+    Dinst_std.columns = ['total_movement_std']
+    df=pd.concat([df, Dinst_std], axis=1,verify_integrity=False)
+
     return df
+
 def preprocess_dinst_data(df):
 
     grouped=df.groupby('ImageNumber')
-
-
     zscore = lambda x: (x - x.mean()) / x.std()
-
     transformed_Dinst = grouped['Dinst'].transform(zscore)  
-
-
     Dinst_std = pd.DataFrame(transformed_Dinst)
-
-
     Dinst_std.columns = ['Dinst_std']
-
     df=pd.concat([df, Dinst_std], axis=1,verify_integrity=False)
 
-    
-    
     return df
 
 def preprocess_dinstL_data(df):
 
     grouped=df.groupby('ImageNumber')
-
-
     zscore = lambda x: (x - x.mean()) / x.std()
-
     transformed_Dinst = grouped['DinstL'].transform(zscore)  
-
-
     Dinst_std = pd.DataFrame(transformed_Dinst)
-
-
     Dinst_std.columns = ['DinstL_std']
-
     df=pd.concat([df, Dinst_std], axis=1,verify_integrity=False)
 
-    
-    
     return df
 
-def compute_max_bin_values(object_df,point_df):
+def compute_max_bin_values(classification_mode, object_df, point_df):
     max_diff_coeff_global=[]
     max_diff_coeff_len=0
     max_MSD_global=[]
@@ -700,7 +690,7 @@ def compute_max_bin_values(object_df,point_df):
     DENSITY_HISTOGRAM_LABELS = ["HIST_DENSITY_%f" % _ for _ in DENSITY_HISTOGRAM_BINS[:-1]]
     
     
-    if CLASS_TYPE=='unlabeled':
+    if classification_mode=='unsupervised':
         max_dinst_global=[]
         max_dinst_len=0
 
@@ -726,12 +716,12 @@ def compute_max_bin_values(object_df,point_df):
     
     return (DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS,MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS,DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
 
-def extract_features_bin_max(object_df,point_df):
+def extract_features_bin_max(classification_mode, object_df, point_df):
     samples = []
     #features_list=('MSD_0','Diffusion_Coefficient')
     #counter=0
         
-    DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS,MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS,DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS=compute_max_bin_values(object_df,point_df)
+    DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS,MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS,DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS=compute_max_bin_values(classification_mode, object_df,point_df)
         
     
     for ROI, data in object_df.groupby('ImageNumber'):
@@ -761,7 +751,7 @@ def extract_features_bin_max(object_df,point_df):
     return (pd.concat([samples, sample_dinst], axis=1,verify_integrity=False),DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
 
 
-def extract_features_bin_fixed(object_df,point_df):
+def extract_features_bin_fixed(classification_mode, object_df,point_df):
     samples = []
     #features_list=('MSD_0','Diffusion_Coefficient')
     #counter=0
@@ -795,7 +785,7 @@ def extract_features_bin_fixed(object_df,point_df):
     samples = pd.concat(samples)
     
     
-    if CLASS_TYPE=='unlabeled':
+    if classification_mode=='unsupervised':
         sample_dinst=[]    
         for ROI, data in point_df.groupby('ImageNumber'):
             dinst_features = generate_dinst_feature_vector(data['Dinst'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)

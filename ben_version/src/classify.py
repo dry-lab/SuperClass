@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 np.set_printoptions(threshold=np.nan)
 import scipy as sp
+import os
 
 from time import time
 from collections import OrderedDict
@@ -234,7 +235,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         else:
             self._compute_comparison_scores_unlabeled()
             
-    def _various_algorithm(self,samples,pits):  
+    def _various_algorithm(self,samples,pits):
         import time
 
         import numpy as np
@@ -258,17 +259,22 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         colors = np.array([x for x in 'bgrcmykbgrcmykbgrcmykbgrcmyk'])
         colors = np.hstack([colors] * 20)
 
-        clustering_names = [
-            'Kmeans','MiniBatchKMeans', 'AffinityPropagation', 'MeanShift',
-            'SpectralClustering', 'Ward', 'AgglomerativeClustering',
-            'DBSCAN', 'Birch']
+        # clustering_names = [
+        #     'Kmeans','MiniBatchKMeans', 'AffinityPropagation', 'MeanShift',
+        #     'SpectralClustering', 'Ward', 'AgglomerativeClustering',
+        #     'DBSCAN', 'Birch']
+
+
+        #clustering_names = ['Kmeans','MiniBatchKMeans', 'AffinityPropagation', 'MeanShift', 'SpectralClustering']
+        clustering_names = ['Kmeans','MiniBatchKMeans', 'AffinityPropagation']
+
 
         plt.figure(figsize=(len(clustering_names) * 2 + 3, 9.5))
         plt.subplots_adjust(left=.02, right=.98, bottom=.001, top=.96, wspace=.05,
                             hspace=.01)
 
         plot_num = 1
-
+        full_result=pd.DataFrame()
         #datasets = [noisy_circles, noisy_moons, blobs, no_structure,samples]
         datasets = [samples]
 
@@ -293,15 +299,15 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
 
             # create clustering estimators
             ms = cluster.MeanShift(bandwidth=bandwidth, bin_seeding=True)
-            two_means = cluster.MiniBatchKMeans(n_clusters=4)
+            two_means = cluster.MiniBatchKMeans(n_clusters=N_CLUSTERS)
            
-            k_means = cluster.KMeans(init='k-means++', n_clusters=4, n_init=100)
+            k_means = cluster.KMeans(init='k-means++', n_clusters=N_CLUSTERS, n_init=100)
  
 
         
-            ward = cluster.AgglomerativeClustering(n_clusters=4, linkage='ward',
+            ward = cluster.AgglomerativeClustering(n_clusters=N_CLUSTERS, linkage='ward',
                                                    connectivity=connectivity)
-            spectral = cluster.SpectralClustering(n_clusters=4,
+            spectral = cluster.SpectralClustering(n_clusters=N_CLUSTERS,
                                                   eigen_solver='arpack',
                                                   affinity="nearest_neighbors")
             dbscan = cluster.DBSCAN(eps=.2)
@@ -309,11 +315,11 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                                                                preference=-200)
 
             average_linkage = cluster.AgglomerativeClustering(
-                linkage="average", affinity="cityblock", n_clusters=4,
+                linkage="average", affinity="cityblock", n_clusters=N_CLUSTERS,
                 connectivity=connectivity)
             
 
-            birch = cluster.Birch(n_clusters=4)
+            birch = cluster.Birch(n_clusters=N_CLUSTERS)
             clustering_algorithms = [
                 k_means,two_means, affinity_propagation, ms, spectral, ward, average_linkage,
                 dbscan, birch]
@@ -339,8 +345,9 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                     result_per_pit = pd.concat([classif_df, pit_df], axis=1,verify_integrity=False)
                     #print "result per pit in kmean function"
                     print result_per_pit
+                    full_result = pd.concat([full_result, result_per_pit['scores']], axis=1)
 
-                # plot
+                #plot
                 plt.subplot(1, len(clustering_algorithms), plot_num)
                 if i_dataset == 0:
                     plt.title(name, size=18)
@@ -359,11 +366,53 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                          horizontalalignment='right')
                 plot_num += 1
 
+            # print full_result
+            # full_result.reindex(clustering_names)
+            # 
+           
+
+            full_result['pits']=result_per_pit['pits']
+
+            self.vote_per_pit_per_image(full_result)
+
+            full_result = self.vote(full_result)
+
+            print full_result
+
+            self.vote_per_pit(full_result)
+
+
+           
+            # full_result.plot(x=None, y=None, kind="scatter")
+
+
         plt.show()
-        
-    
-    
-    
+
+
+    def vote(self,df):
+        temp =[]
+        for index, row in df.iterrows():
+            temp.append(row.mode().max())
+        df['max']=temp
+        return df
+
+    def vote_per_pit(self, df):
+        for index, row in df.groupby('pits'):
+            # print row['max']
+            print "Classification Per Pit : "+index
+            print row['max'].mode()
+
+    def vote_per_pit_per_image(self, df):
+        for index, row in df.groupby('pits'):
+            print "Classification Direct: "+index
+            print row.mode().max()
+
+            # print "Classification Per Pit : "+index
+            # print row['max'].mode()
+
+
+
+
     def _dbscan(self,samples,pits):
         from sklearn.cluster import DBSCAN
         from sklearn import metrics
@@ -437,8 +486,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             # Compute clustering
             print("Compute structured hierarchical clustering...")
             st = time()
-            n_clusters = 4  # number of regions
-            ward = AgglomerativeClustering(n_clusters=n_clusters, linkage='ward',
+            ward = AgglomerativeClustering(n_clusters=N_CLUSTERS, linkage='ward',
                                            connectivity=connectivity)
             clf =ward.fit_predict(X)
             print clf.reshape((57,119))
@@ -463,9 +511,9 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             # Plot the results on an image
             plt.figure(figsize=(5, 5))
             plt.imshow(samples, cmap=plt.cm.gray)
-            for l in range(n_clusters):
+            for l in range(N_CLUSTERS):
                 plt.contour(label == l, contours=1,
-                            colors=[plt.cm.spectral(l / float(n_clusters)), ])
+                            colors=[plt.cm.spectral(l / float(N_CLUSTERS)), ])
             plt.xticks(())
             plt.yticks(())
             plt.show()
@@ -486,7 +534,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                 if metric=="cosine":
                     for linkage in ('average', 'complete'):
 
-                        clustering = AgglomerativeClustering(linkage=linkage, n_clusters=4,affinity=metric)
+                        clustering = AgglomerativeClustering(linkage=linkage, n_clusters=N_CLUSTERS,affinity=metric)
                         #t0 = time()
                         clf=clustering.fit_predict(X_red)
                         print clf
@@ -524,7 +572,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                 elif metric=="euclidean":
                     for linkage in ('ward', 'average', 'complete'):
 
-                        clustering = AgglomerativeClustering(linkage=linkage, n_clusters=4,affinity=metric)
+                        clustering = AgglomerativeClustering(linkage=linkage, n_clusters=N_CLUSTERS,affinity=metric)
                         #t0 = time()
                         clf=clustering.fit_predict(X_red)
                         print clf
@@ -563,7 +611,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                 else:
                     for linkage in ('average', 'complete'):
 
-                        clustering = AgglomerativeClustering(linkage=linkage, n_clusters=4,affinity=metric)
+                        clustering = AgglomerativeClustering(linkage=linkage, n_clusters=N_CLUSTERS,affinity=metric)
                         #t0 = time()
                         clf=clustering.fit_predict(X_red)
                         print clf
@@ -674,11 +722,12 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                    "uncertain labels to learn with the next model.")
         plt.subplots_adjust(0.12, 0.03, 0.9, 0.8, 0.2, 0.45)
         plt.show()
+
+
     def _k_mean(self,samples,pits):
 
         #print samples
-        n_clusters =4
-        k_means = KMeans(init='k-means++', n_clusters=n_clusters, n_init=100)
+        k_means = KMeans(init='k-means++', n_clusters=N_CLUSTERS, n_init=100)
         k_means.fit(samples)
         k_means_labels = k_means.labels_
 
@@ -711,9 +760,9 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         #result_per_pit=pd.DataFrame(result_per_pit,index=np.arange(0,len(result_per_pit)))
         self.result = pd.concat([result_per_pit.groupby('pits')['scores'].sum(), result_per_pit.groupby('pits')['scores'].count()], axis=1,verify_integrity=False)
         self.result.columns = ['scores','count']
-        self.result.to_csv("/Users/benjamindartigues/SuperClassTest/final_result.csv",sep=",")
+        self.result.to_csv(os.path.join(OUTPUT_DIR, "final_result.csv"),sep=",")
     #result_per_pit.columns = ['pits','scores','count']
-        result_per_pit.to_csv("/Users/benjamindartigues/SuperClassTest/pre_result_simple_k_means_freedman.csv",sep=",")
+        result_per_pit.to_csv(os.path.join(OUTPUT_DIR, "pre_result_simple_k_means_freedman.csv"),sep=",")
         #print result_per_pit.reindex(range(119))
         #print result_per_pit[:1]
         
@@ -764,7 +813,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
 #            counter+=1
 #        sample= pd.concat(sample_result)
 #        #sample=pd.DataFrame(sample_result)
-#        sample.to_csv("/Users/benjamindartigues/SuperClassTest/pre_result.csv",sep=",")
+#        sample.to_csv(os.path.join(OUTPUT_DIR, "pre_result.csv"),sep=",")
 #        sample= sample[sample.columns.tolist()].values
 #        print sample
 #        k_means.fit(sample)
@@ -780,7 +829,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         # Compute clustering with MiniBatchKMeans
         ############################################################################################
         
-        mbk = MiniBatchKMeans(init='k-means++', n_clusters=n_clusters, batch_size=batch_size,
+        mbk = MiniBatchKMeans(init='k-means++', n_clusters=N_CLUSTERS, batch_size=batch_size,
                               n_init=100, max_no_improvement=10, verbose=0)
         
         
@@ -791,6 +840,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         t_mini_batch = time() - t0
         mbk_means_labels = mbk.labels_
         mbk_means_cluster_centers = mbk.cluster_centers_
+
         mbk_means_labels_unique = np.unique(mbk_means_labels)
         
         
@@ -807,7 +857,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         result_per_pit = pd.concat([classif_df, pit_df], axis=1,verify_integrity=False)
         print "result per pit in Mini Batch KMeans function"
         print result_per_pit
-        result_per_pit.to_csv("/Users/benjamindartigues/SuperClassTest/pre_result_batch_k_means_freedman.csv",sep=",")
+        result_per_pit.to_csv(os.path.join(OUTPUT_DIR, "pre_result_batch_k_means_freedman.csv"),sep=",")
 
         result_per_pit= result_per_pit[['scores','pits']].values
         result_per_pit_df=pd.DataFrame(result_per_pit,index=np.arange(len(result_per_pit)))
@@ -828,7 +878,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
 
         # KMeans
         ax = fig.add_subplot(1, 3, 1)
-        for k, col in zip(range(n_clusters), colors):
+        for k, col in zip(range(N_CLUSTERS), colors):
             my_members = k_means_labels == k
             cluster_center = k_means_cluster_centers[k]
             ax.plot(samples[my_members, 0], samples[my_members, 1], 'w',
@@ -850,7 +900,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         
         # MiniBatchKMeans
         ax = fig.add_subplot(1, 3, 2)
-        for k, col in zip(range(n_clusters), colors):
+        for k, col in zip(range(N_CLUSTERS), colors):
             my_members = mbk_means_labels == order[k]
             cluster_center = mbk_means_cluster_centers[order[k]]
             ax.plot(samples[my_members, 0], samples[my_members, 1], 'w',
@@ -911,7 +961,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             labels = spectral_clustering(graph, n_clusters=N_REGIONS,
                                          assign_labels=assign_labels, random_state=1)
             sample=pd.DataFrame(labels)
-            sample.to_csv("/Users/benjamindartigues/SuperClassTest/spectral_result.csv",sep=",")
+            sample.to_csv(os.path.join(OUTPUT_DIR, "spectral_result.csv"),sep=",")
             t1 = time.time()
             #classif=labels.fit(samples)
             #print classif
@@ -939,8 +989,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         # Generate sample data
         #print"########### initial samples "
         samples = self._data
-        
-        samples.to_csv("/Users/benjamindartigues/SuperClassTest/new_result_with_wave_tracer.csv",sep=",")
+        samples.to_csv(os.path.join(OUTPUT_DIR, "new_result_with_wave_tracer.csv"),sep=",")
 
         
         #print "samples before classification"
@@ -965,14 +1014,14 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         
         
         
-        #self._k_mean(samples, pits)
+        # self._k_mean(samples, pits)
         
         
-        self._label_propagation()
+        # self._label_propagation()
         #self._agglomerative_clustering(samples,pits,'unstructured')
         #self._spectral_clustering(samples)
         #self._dbscan(samples,pits)
-        #self._various_algorithm(samples,pits)
+        self._various_algorithm(samples,pits)
         
         
     
@@ -982,8 +1031,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
 
         samples = self._data
         samples2=samples
-        
-        samples.to_csv("/Users/benjamindartigues/SuperClassTest/sample_before_classification.csv",sep=",")
+        samples.to_csv(os.path.join(OUTPUT_DIR, "sample_before_classification.csv"),sep=",")
 
 
         #print"########### samples"
@@ -1133,9 +1181,9 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         #result_per_pit=pd.DataFrame(result_per_pit,index=np.arange(0,len(result_per_pit)))
         self.result = pd.concat([result_per_pit.groupby('pits')['scores'].sum(), result_per_pit.groupby('pits')['scores'].count()], axis=1,verify_integrity=False)
         self.result.columns = ['scores','count']
-        self.result.to_csv("/Users/benjamindartigues/SuperClassTest/final_result.csv",sep=",")
+        self.result.to_csv(os.path.join(OUTPUT_DIR, "final_result.csv"),sep=",")
     #result_per_pit.columns = ['pits','scores','count']
-        result_per_pit.to_csv("/Users/benjamindartigues/SuperClassTest/pre_result_simple_k_means_freedman.csv",sep=",")
+        result_per_pit.to_csv(os.path.join(OUTPUT_DIR, "pre_result_simple_k_means_freedman.csv"),sep=",")
         #print result_per_pit.reindex(range(119))
         #print result_per_pit[:1]
 
@@ -1175,30 +1223,29 @@ class DensityHistoClassifier(ClassificationExperimentMachineLearning):
     
     def get_columns_to_remove(self):
         columns = self._data.columns.tolist()
-
+        print columns
 
         if self.columns == 'density_hist':
             keep_only = self.density_histogram_labels
             
         elif self.columns == 'diff_hist':
             keep_only = self.dinst_histogram_labels
+
         elif self.columns == 'trajectory_hist':
             keep_only = TRAJECTORY_FRAMES_HISTOGRAM_LABELS
             
         elif self.columns == 'msd_hist':
             keep_only = self.msd_histogram_labels
+
         elif self.columns == 'all':
             return []
+
         else:
             raise Exception(self.columns + ' unknown')
 
 
         return set(columns) - set(keep_only)
 
-    
-
-
-        
 
 # metadata
 __author__ = 'Romain Giot'
