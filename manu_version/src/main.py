@@ -23,9 +23,9 @@ from constants import *
 from graphic_functions import *
 
 
-def launch_experiment(classification_mode, per_image_file, per_image_cols,per_object_file,per_object_cols, per_point_file,per_point_cols, groups, remove_pits=None):
+
+def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_cols, per_point_file,per_point_cols, groups, remove_pits=None):
     """Launch the experiment on the dataset of interest."""
-    #logger.info("Successfully launch experiment ")
     # Read the data files
     img_df = pd.read_csv(per_image_file, names=per_image_cols, header=None, sep=',', low_memory=False)
     obj_df = pd.read_csv(per_object_file, names=per_object_cols, header=None, sep=',', low_memory=False)
@@ -33,104 +33,66 @@ def launch_experiment(classification_mode, per_image_file, per_image_cols,per_ob
 
     global samples
     
-    if classification_mode=='unsupervised':
-        if PREPROCESSED_MODE=="normalized":##
+    if PREPROCESSED_MODE=="normalized":##
+        obj_df=preprocess_object_data(obj_df)
+        point_df=preprocess_data(point_df, "Dinst")
+        # point_df=preprocess_data(point_df, "DinstL")
+        samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS=extract_features_bin_std(obj_df)
+        dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
+        # dinst,DINST_HISTOGRAM_LABELS=extract_dinstL_features(point_df)
+        # dinst,DINST_HISTOGRAM_LABELS=extract_wave_tracer_features(point_df)
+        samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
 
-            obj_df=preprocess_object_data(obj_df)
-            point_df=preprocess_dinst_data(point_df)
-            # point_df=preprocess_dinstL_data(point_df)
-            samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS=extract_features_bin_std(obj_df)
-            dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
-            # dinst,DINST_HISTOGRAM_LABELS=extract_dinstL_features(point_df)
-            # dinst,DINST_HISTOGRAM_LABELS=extract_wave_tracer_features(point_df)
-            samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
-
-        else:
-
-            if BINNING_TYPE=="freedman_all":
-                logger.info("freedman mode detected")
-                DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS,MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS,DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS=freedman_diaconis(obj_df,point_df)
-                samples = extract_features(obj_df,DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS,MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS)
-
-            if BINNING_TYPE=="freedman_max":
-                samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS=extract_features_bin_max(classification_mode, obj_df,point_df)
-                #dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
-                #samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
-
-            if BINNING_TYPE=="fixed":
-
-                samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS=extract_features_bin_fixed(classification_mode, obj_df,point_df)
-    else: #supervised mode
-        
-        
-        if PREPROCESSED_MODE=="normalized":
-            DINST_MIN=10e-5
-            DINST_MAX=2.5
-            DINST_HISTOGRAM_BINS=np.linspace(DINST_MIN, DINST_MAX, num=20)
-            DINST_HISTOGRAM_LABELS=["HIST_DINST_%f" % _ for _ in DINST_HISTOGRAM_BINS[:-1]] 
-            obj_df=preprocess_object_data(obj_df)
-            
-            #point_df.to_csv(os.path.join(OUTPUT_DIR, "pointdf_std.csv"),sep=",")
-
-            #dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
-            samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS=extract_features_bin_std(obj_df)
-            
-            #this part works only with Anne datasets
-            point_df=preprocess_dinst_data(point_df)
-            dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
-            # dinst,DINST_HISTOGRAM_LABELS=extract_wave_tracer_features(point_df)
-            samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
+    else :
+        if BINNING_TYPE=="freedman_all":
+            DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS,MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS,DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS=freedman_diaconis(obj_df,point_df)
+            samples = extract_features(obj_df,DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS,MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS)
+        if BINNING_TYPE=="freedman_max":
+            samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS=extract_features_bin_max(obj_df,point_df)
             #dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
             #samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
+        if BINNING_TYPE=="fixed":
+            samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS=extract_features_bin_fixed(obj_df,point_df)
 
-
-        else:
-            if BINNING_TYPE=="freedman_all":
-                logger.info("freedman mode detected")
-                DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS,MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS,DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS=freedman_diaconis(obj_df,point_df)
-                samples = extract_features(obj_df,DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS,MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS)
-            if BINNING_TYPE=="freedman_max":
-                samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS=extract_features_bin_max(classification_mode, obj_df,point_df)
-                #dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
-                #samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
-            if BINNING_TYPE=="fixed":
-                samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS=extract_features_bin_fixed(classification_mode, obj_df, point_df)
 
     pits = associate_pit_to_samples(samples, img_df)
     samples["pit"] = pits 
 
-
-    imageOrPit = "pit"
-    if imageOrPit =="pit":
+    if IMAGEORPIT =="pit":
         #------------------------------------------------------------ classif per pit
         samples_per_pit = samples.groupby('pit')
         samples_per_pit=samples_per_pit.aggregate(np.median)
         print samples_per_pit
         samples=samples_per_pit
 
-
     # Remove the pits which are not interested
     if remove_pits:
-        # search the idx of the rows to remove
-        for i, pit_to_remove in enumerate(remove_pits):
-            print "TO REMOVE : key =>"+i+" ; value =>"+pit_to_remove
-            if 0 == i:
-                idx_to_remove = pit_to_remove == samples["pit"]
-            else:
-                idx_to_remove = np.logical_or(idx_to_remove, pit_to_remove == samples['pit'])
-            # really remove them
-            samples = samples[~idx_to_remove]
-    samples.to_csv(os.path.join(OUTPUT_DIR, "sample_file_before_classification_std.csv"),sep=",")
+        samples = remove_pits(samples, remove_pits)
 
-    if classification_mode == 'supervised':
+
+    if CLASSIFICATION_MODE == 'supervised':
         group_by_condition(samples,groups)
-        run_cell_classification_algo(classification_mode, samples, DENSITY_HISTOGRAM_LABELS, MSD_HISTOGRAM_LABELS, DINST_HISTOGRAM_LABELS)
+        run_cell_classification_algo(samples, DENSITY_HISTOGRAM_LABELS, MSD_HISTOGRAM_LABELS, DINST_HISTOGRAM_LABELS)
     else:  
-        run_unsupervised_cell_classification_algo(classification_mode, samples, DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
-        # run_unsupervised_cell_classification_algo(classification_mode, samples_per_pit, DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
+        run_unsupervised_cell_classification_algo(samples, DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
+        # run_unsupervised_cell_classification_algo(samples_per_pit, DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
 
 
-def run_unsupervised_cell_classification_algo(classification_mode, samples, DENSITY_HISTOGRAM_LABELS, MSD_HISTOGRAM_LABELS, DINST_HISTOGRAM_LABELS):
+
+
+def remove_pits(samples, pitsToRemove):
+    for i, pit_to_remove in enumerate(remove_pits):
+        print "TO REMOVE : key =>"+i+" ; value =>"+pit_to_remove
+        if 0 == i:
+            idx_to_remove = pit_to_remove == samples["pit"]
+        else:
+            idx_to_remove = np.logical_or(idx_to_remove, pit_to_remove == samples['pit'])
+        # really remove them
+        samples = samples[~idx_to_remove]
+    return samples
+
+
+def run_unsupervised_cell_classification_algo(samples, DENSITY_HISTOGRAM_LABELS, MSD_HISTOGRAM_LABELS, DINST_HISTOGRAM_LABELS):
     #button_unsupervised_run.configure(state=DISABLED)
     classifier_scores = {}
     # features=['density_hist','msd_hist','all','diff_hist']
@@ -141,7 +103,7 @@ def run_unsupervised_cell_classification_algo(classification_mode, samples, DENS
                 samples,
                 'K-mean', 
                 column,
-                classification_mode,
+                CLASSIFICATION_MODE,
                 DENSITY_HISTOGRAM_LABELS,
                 MSD_HISTOGRAM_LABELS,
                 DINST_HISTOGRAM_LABELS)
@@ -159,10 +121,9 @@ def run_unsupervised_cell_classification_algo(classification_mode, samples, DENS
 	#fig.show()
     
     
-def run_cell_classification_algo(classification_mode, samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS):
+def run_cell_classification_algo(samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS):
 	#tkMessageBox.messagebox.showinfo('Cell Classification Algorithm (v0)', 'running on data: '+var_dataDir.get())
 	#button_run.configure(state=DISABLED)
-        
 
 	# Launch the classification procedure on the various extracted features and the various classifiers
 	#distance_scores = {}
@@ -179,7 +140,7 @@ def run_cell_classification_algo(classification_mode, samples,DENSITY_HISTOGRAM_
 				samples,
 				classifier_name, 
 				column,
-                classification_mode,
+                CLASSIFICATION_MODE,
                 DENSITY_HISTOGRAM_LABELS,
                 MSD_HISTOGRAM_LABELS,
                 DINST_HISTOGRAM_LABELS)
@@ -249,19 +210,22 @@ def run_cell_classification_algo(classification_mode, samples,DENSITY_HISTOGRAM_
 def group_by_condition(samples, groups):
     # Replace each different fixed condition by a similar on
     # Trouver un autre systeme
-    if CONSIDER_ALL_FIXED_AS_EQUAL:	
-            for key in groups:
-                    if groups[key].startswith('FIXED'):	
-                            groups[key] = 'FIXED'
+    # if CONSIDER_ALL_FIXED_AS_EQUAL:
+    for key in groups:
+        if groups[key].startswith('FIXED'):
+            groups[key] = 'FIXED'
 
     # replace pits by condition
-    inline_merge_pits_in_conditions(samples, groups, key='condition')
+    key='condition'
+    samples[key] = None
+    for pit, cond in groups.items():
+        samples[key][samples['pit'] == pit] = cond
+    assert (samples[key] != -1).all(), "Some samples have no condition"
+
     samples.to_csv(os.path.join(OUTPUT_DIR, "test_pit_merged2new3.csv"),sep=",")
 
     assert not np.any(samples['condition'].isnull()), "ATTENTION, the conditions have not been set (verify the groups)"
-    # XXX Here it should be exactly the same code than in the previous stuff
-    # 
-    ######Here we produced 
+
     samples.groupby('condition').boxplot(rot=90,return_type='axes')
     global nb_conditions
     nb_conditions = len(np.unique(samples['condition']))
@@ -272,8 +236,8 @@ def main():
     global OUTPUT_DIR
     global INPUT_DIR
     global PREPROCESSED_MODE
-    global imageOrPit
-    classification_mode = "supervised"
+    global IMAGEORPIT
+    global CLASSIFICATION_MODE
 
     parser = argparse.ArgumentParser(description='Parameter for superclass')
     parser.add_argument('-k','--nclusters', help='Number of clusters. Default 4.', required=False)
@@ -282,6 +246,7 @@ def main():
     parser.add_argument('-i','--input', help='Inpu dir where files are located', required=True)
     parser.add_argument('-p','--process', help='processing mode (normalized, other)', required=False)
     parser.add_argument('-j','--imageOrPit', help='Classify pit or images', required=False)
+    parser.add_argument('-b','--binning', help='freedman_std, freedman_all, freedman_max, fixed', required=False)
 
     args = vars(parser.parse_args())
     print args
@@ -291,7 +256,7 @@ def main():
         print "toto"
 
     if args['classification'] is not None:
-        classification_mode = args['classification']
+        CLASSIFICATION_MODE = args['classification']
 
     if args['output'] is not None:
         OUTPUT_DIR = args['output']
@@ -303,20 +268,10 @@ def main():
         PREPROCESSED_MODE = args['process']
 
     if args['imageOrPit'] is not None:
-        imageOrPit = args['imageOrPit']
+        IMAGEORPIT = args['imageOrPit']
 
-
-
-
-    sys.stdout.write("N CLUSTERS : ")
-    type(N_CLUSTERS)
-    print(N_CLUSTERS)
-    sys.stdout.write("classification_mode : "+classification_mode+"\n")
-    sys.stdout.write("INPUT_DIR : "+INPUT_DIR+"\n")
-    sys.stdout.write("OUTPUT_DIR : "+OUTPUT_DIR+"\n")
-    sys.stdout.write("CACHE_DIR : "+CACHE_DIR+"\n")
-    sys.stdout.write("PREPROCESSED_MODE : "+PREPROCESSED_MODE+"\n")
-
+    if args['binning'] is not None:
+        BINNING_TYPE = args['binning']
 
     per_image_file = os.path.join(INPUT_DIR, "per_image_bioinfo_Crosslink240415.csv")
     per_object_file = os.path.join(INPUT_DIR, "per_object_bioinfo_Crosslink240415.csv")
@@ -327,7 +282,6 @@ def main():
     # per_point_file = os.path.join(INPUT_DIR, "per_point_testgraphlab.csv")
 
     launch_experiment(
-        classification_mode,
         per_image_file,
                 per_image_cols,
         per_object_file, 
