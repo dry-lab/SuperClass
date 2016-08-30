@@ -94,41 +94,6 @@ def freedman_diaconis(object_df,point_df):
     
     return (DIFF_MIN, DIFF_MAX, DIFF_HISTOGRAM_BINS, DIFF_HISTOGRAM_LABELS, MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS,DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS) 
 
-def generate_diffusion_coefficient_features_vector(density,DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS):
-
-    density.loc[density<DENSITY_MIN] = DENSITY_MIN
-    density.loc[density>DENSITY_MAX] = DENSITY_MAX
-
-    # Compute a normalized histogram
-    hist, bins = np.histogram(density, 
-                                       bins=DENSITY_HISTOGRAM_BINS)
-    hist = hist/float(hist.sum())
-
-    # Build the features
-    feat = OrderedDict( zip(DENSITY_HISTOGRAM_LABELS, hist))
-    df = pd.DataFrame([feat])
-    df = df.reindex_axis(feat.keys(), axis=1) #order seems eroneous
-
-    return df
-
-def generate_dinst_feature_vector(dinst,DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS):
-    #print DINST_HISTOGRAM_BINS
-    dinst.loc[dinst<DINST_MIN] = DINST_MIN
-    dinst.loc[dinst>DINST_MAX] = DINST_MAX
-    #print DINST_HISTOGRAM_BINS
-
-    # Compute a normalized histogram
-    hist, bins = np.histogram(dinst, bins=DINST_HISTOGRAM_BINS)
-    hist = hist/float(hist.sum())
-
-    # Build the features
-    feat = OrderedDict( zip(DINST_HISTOGRAM_LABELS, hist))
-    df = pd.DataFrame([feat])
-    df = df.reindex_axis(feat.keys(), axis=1) #order seems eroneous
-
-    return df
- 
-                   
 def extract_wave_tracer_features(df): 
 
     df_columns = ['ImageNumber', 'total_movement']
@@ -160,20 +125,20 @@ def extract_wave_tracer_features(df):
         data_df['total_movement'].plot(kind='line')
 
         da_global,bins_global = freedman_bin_width(data_df['total_movement'], True)
-        DINST_MIN=bins_global[0]
-        DINST_MAX=bins_global[len(bins_global)-1]
-        DINST_HISTOGRAM_BINS=bins_global
-        DINST_HISTOGRAM_LABELS = ["HIST_DINST_%f" % _ for _ in DINST_HISTOGRAM_BINS[:-1]]
-        print DINST_HISTOGRAM_LABELS
+        WTRACER_MIN=bins_global[0]
+        WTRACER_MAX=bins_global[len(bins_global)-1]
+        WTRACER_HISTOGRAM_BINS=bins_global
+        WTRACER_HISTOGRAM_LABELS = ["HIST_WTRACER_%f" % _ for _ in WTRACER_HISTOGRAM_BINS[:-1]]
+        print WTRACER_HISTOGRAM_LABELS
 
         for ROI, data in data_df.groupby('ImageNumber'):
-            dinst_features = generate_feature_vector(data['total_movement'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
-            dinst_features['index'] = ROI
-            dinst_features = dinst_features.set_index('index')
-            samples.append(dinst_features)
+            wtracer_features = generate_feature_vector(data['total_movement'],WTRACER_MIN,WTRACER_MAX,WTRACER_HISTOGRAM_BINS,WTRACER_HISTOGRAM_LABELS)
+            wtracer_features['index'] = ROI
+            wtracer_features = wtracer_features.set_index('index')
+            samples.append(wtracer_features)
         pd.concat(samples).to_csv(os.path.join(OUTPUT_DIR, "samplesWaveTracer.csv"),sep=",")
 
-    return (pd.concat(samples),DINST_HISTOGRAM_LABELS)
+    return (pd.concat(samples),WTRACER_HISTOGRAM_LABELS)
 
 
 def extract_dinst_features(df):
@@ -191,7 +156,7 @@ def extract_dinst_features(df):
         DINST_HISTOGRAM_LABELS = ["HIST_DINST_%f" % _ for _ in DINST_HISTOGRAM_BINS[:-1]]
         for ROI, data in df.groupby('ImageNumber'):
             #print data['Dinst_std']
-            dinst_features = generate_dinst_feature_vector(data['Dinst_std'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
+            dinst_features = generate_feature_vector(data['Dinst_std'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
             dinst_features['index'] = ROI
             dinst_features = dinst_features.set_index('index')
             samples.append(dinst_features)
@@ -214,33 +179,12 @@ def extract_dinstL_features(df):
         DINST_HISTOGRAM_LABELS = ["HIST_DINST_%f" % _ for _ in DINST_HISTOGRAM_BINS[:-1]]
         for ROI, data in df.groupby('ImageNumber'):
             #print data['Dinst_std']
-            dinst_features = generate_dinst_feature_vector(data['DinstL_std'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
+            dinst_features = generate_feature_vector(data['DinstL_std'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
             dinst_features['index'] = ROI
             dinst_features = dinst_features.set_index('index')
             samples.append(dinst_features)
 
     return (pd.concat(samples),DINST_HISTOGRAM_LABELS)
-
-
-
-##normalisation
-def preprocess_object_data(df):
-
-    grouped=df.groupby('ImageNumber')
-    zscore = lambda x: (x - x.mean()) / x.std()
-
-    transformed_DC = grouped['Diffusion_Coefficient'].transform(zscore)  
-    transformed_MSD = grouped['MSD_0'].transform(zscore)
-
-    DC_std = pd.DataFrame(transformed_DC)
-    MSD_std = pd.DataFrame(transformed_MSD)
-
-    DC_std.columns = ['Diffusion_Coefficient_std']
-    MSD_std.columns = ['MSD_0_std']
-    df=pd.concat([df, DC_std], axis=1,verify_integrity=False)
-    df=pd.concat([df, MSD_std], axis=1,verify_integrity=False)
-    return df
-
 
 
 def preprocess_data(df, colName):
@@ -323,32 +267,28 @@ def extract_features_bin_max(object_df, point_df):
     #counter=0
         
     DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS,MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS,DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS=compute_max_bin_values(object_df,point_df)
-        
-    
+
     for ROI, data in object_df.groupby('ImageNumber'):
         
         # XXX Generate vector of features
         msd_features = generate_feature_vector(data['MSD_0'],MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS)      
-        diffusion_features = generate_diffusion_coefficient_features_vector(data['Diffusion_Coefficient'],DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS)
+        diffusion_features = generate_feature_vector(data['Diffusion_Coefficient'],DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS)
         
         # XXX Merge the set of features
         all_feat = pd.concat([diffusion_features, msd_features], axis=1,verify_integrity=False)
         all_feat['index'] = ROI
         all_feat = all_feat.set_index('index')
         samples.append(all_feat)
-    samples = pd.concat(samples)    
-        
-    sample_dinst=[]    
+    samples = pd.concat(samples)
+    sample_dinst=[]
     for ROI, data in point_df.groupby('ImageNumber'):
-        
-        dinst_features = generate_dinst_feature_vector(data['Dinst'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
+        dinst_features = generate_feature_vector(data['Dinst'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
         dinst_features['index'] = ROI
         dinst_features = dinst_features.set_index('index')
-        sample_dinst.append(dinst_features)  
-                
+        sample_dinst.append(dinst_features)
+
     sample_dinst=pd.concat(sample_dinst)
-    
-    
+
     return (pd.concat([samples, sample_dinst], axis=1,verify_integrity=False),DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
 
 
@@ -376,7 +316,7 @@ def extract_features_bin_fixed(object_df,point_df):
         
         # XXX Generate vector of features
         msd_features = generate_feature_vector(data['MSD_0'],MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS)      
-        diffusion_features = generate_diffusion_coefficient_features_vector(data['Diffusion_Coefficient'],DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS)
+        diffusion_features = generate_feature_vector(data['Diffusion_Coefficient'],DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS)
 
         # XXX Merge the set of features
         all_feat = pd.concat([diffusion_features, msd_features], axis=1,verify_integrity=False)
@@ -384,12 +324,12 @@ def extract_features_bin_fixed(object_df,point_df):
         all_feat = all_feat.set_index('index')
         samples.append(all_feat)
     samples = pd.concat(samples)
-    
-    
+
+
     if CLASSIFICATION_MODE=='unsupervised':
         sample_dinst=[]    
         for ROI, data in point_df.groupby('ImageNumber'):
-            dinst_features = generate_dinst_feature_vector(data['Dinst'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
+            dinst_features = generate_feature_vector(data['Dinst'],DINST_MIN,DINST_MAX,DINST_HISTOGRAM_BINS,DINST_HISTOGRAM_LABELS)
             dinst_features['index'] = ROI
             dinst_features = dinst_features.set_index('index')
             sample_dinst.append(dinst_features)  
@@ -399,21 +339,11 @@ def extract_features_bin_fixed(object_df,point_df):
     else:
         return (samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
 
-
-    #fig=plt.figure()
-    #fig.savefig('/Users/benjamindartigues/super_class_test/src/histo.pdf',dpi=fig.dpi)
-    #plt.close(fig)
-    #print "samples after groupby in extract features"
-    #print pd.concat(samples)
-
-    #return (pd.concat(samples),DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS)
-def extract_features_bin_std(df):
+def extract_features_bin_normalized(df):
     """Extract the feature vector of each ROI (ImageNumber? or slot).
     This time we do not have any information on the number of time a particle is visible"""
     samples = []
-    #features_list=('MSD_0','Diffusion_Coefficient')
-    #counter=0
-    
+
     if BINNING_TYPE=="freedman_max":
         max_diff_coeff_global=[]
         max_diff_coeff_len=0
@@ -461,7 +391,6 @@ def extract_features_bin_std(df):
         #print DENSITY_HISTOGRAM_BINS
         DENSITY_HISTOGRAM_LABELS = ["HIST_DENSITY_%f" % _ for _ in DENSITY_HISTOGRAM_BINS[:-1]]
 
-
     if BINNING_TYPE=="freedman_std": 
         
         da_global,bins_global = freedman_bin_width(df['Diffusion_Coefficient_std'], True)
@@ -470,7 +399,7 @@ def extract_features_bin_std(df):
         DENSITY_HISTOGRAM_BINS=bins_global
         #print DENSITY_HISTOGRAM_BINS
         DENSITY_HISTOGRAM_LABELS = ["DENSITY_MSD_%f" % _ for _ in DENSITY_HISTOGRAM_BINS[:-1]]
-        
+
         da_global,bins_global = freedman_bin_width(df['MSD_0_std'], True)
         MSD_MIN=bins_global[0]
         MSD_MAX=bins_global[len(bins_global)-1]
@@ -480,12 +409,10 @@ def extract_features_bin_std(df):
         
     
     for ROI, data in df.groupby('ImageNumber'):
-        
         # XXX Generate vector of features
-        
         msd_features = generate_feature_vector(data['MSD_0_std'],MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS)      
-        diffusion_features = generate_diffusion_coefficient_features_vector(data['Diffusion_Coefficient_std'],DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS)
-        
+        diffusion_features = generate_feature_vector(data['Diffusion_Coefficient_std'],DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS)
+
         # XXX Merge the set of features
         all_feat = pd.concat([diffusion_features, msd_features], axis=1,verify_integrity=False)
         all_feat['index'] = ROI
@@ -508,64 +435,22 @@ def extract_features(df,DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_H
 	for ROI, data in df.groupby('ImageNumber'):
             # XXX Generate vector of features
             msd_features = generate_feature_vector(data['MSD_0'],MSD_MIN,MSD_MAX,MSD_HISTOGRAM_BINS,MSD_HISTOGRAM_LABELS)
-
-            diffusion_features = generate_diffusion_coefficient_features_vector(data['Diffusion_Coefficient'],DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS)
-
+            diffusion_features = generate_feature_vector(data['Diffusion_Coefficient'],DENSITY_MIN,DENSITY_MAX,DENSITY_HISTOGRAM_BINS,DENSITY_HISTOGRAM_LABELS)
             all_feat = pd.concat([diffusion_features, msd_features], axis=1,verify_integrity=False)
             all_feat['index'] = ROI
             all_feat = all_feat.set_index('index')
             samples.append(all_feat)
-
-
-            #histFrdDiac, binsFrdDiac = np.histogram(data['MSD_0'], bins=MSD_HISTOGRAM_BINS)
-            #histFrdDiac = histFrdDiac /float(histFrdDiac.sum())
-            #plt.hist(histFrdDiac, binsFrdDiac)
-            #plt.show()
-             
-        #fig=plt.figure()
-        #fig.savefig('/Users/benjamindartigues/super_class_test/src/histo.pdf',dpi=fig.dpi)
-        #plt.close(fig)
         print "samples after groupby in extract features"
-        #print pd.concat(samples)
-        
+
 	return pd.concat(samples)
-
-def extract_features_of_result(df):
-	"""Extract the feature vector of each ROI (ImageNumber? or slot).
-	This time we do not have any information on the number of time a particle is visible"""
-	samples = []
-
-	for ImageNumber, data in df.groupby('ImageNumber'):
-		print "Image Number : "
-		print ImageNumber
-		print "Data : "
-		print data['NbrDinstinTracks']
-		nbdata =data['NbrDinstinTracks']
-		
-		hist, bins = np.histogram(nbdata, bins=bins)
-		#hist = hist/float(hist.sum())
-		plt.hist(hist, bins=bins, facecolor='m', alpha=0.75)
-		plt.xlabel( 'Bins' )
-		plt.ylabel( 'NbrDinstinTracks' )
-		plt.show()
-
 
 
 def associate_pit_to_samples(features, img_df):
 	"""Compute the pit of each sample and returns an array of pit"""
-
 	# Builf the Look Up Table from an image to a pit
 	pits = img_df['well']
 	imgs = img_df['ImageNumber']
-        #print pits
-        #print imgs
-
 	LUT = dict(zip(imgs, pits))
-        #print LUT
-	# Get the corresponding pit
-	# (XXX as an array and not a DataFrame in order to avoid index issues)
-	#
-
 	return features.reset_index()['index'].apply(lambda idx: LUT[idx]).values
 
 

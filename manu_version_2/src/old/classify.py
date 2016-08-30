@@ -9,17 +9,13 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # imports
+import os
 import time
 import pandas as pd
-pd.set_option('display.max_rows', 120)
 import matplotlib.pyplot as plt
 import numpy as np
-np.set_printoptions(threshold=np.nan)
 import scipy as sp
-import os
-
-from time import time
-from collections import OrderedDict
+from scipy import stats
 from sklearn import manifold
 from sklearn.metrics import roc_curve, auc, classification_report, confusion_matrix
 from sklearn.svm import SVC
@@ -36,41 +32,15 @@ from sklearn.utils.fixes import sp_version
 from sklearn.cluster import MiniBatchKMeans,KMeans
 from sklearn.metrics.pairwise import pairwise_distances_argmin
 from sklearn.externals import joblib
+from sklearn.neighbors import kneighbors_graph
+from sklearn import cluster
+from sklearn import datasets
+from sklearn.semi_supervised import label_propagation
 from constants import *
 
 
-
-
-
-
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy import stats
-
-from sklearn import datasets
-from sklearn.semi_supervised import label_propagation
-
-
-
-
-
-
-
-def inline_merge_pits_in_conditions(samples, groups, key='position'):
-    """Merge several pits together in order to be able to says that such group of pits
-    correspond to the same kind of experiment
-    """
-
-    samples[key] = None
-
-    for pit, cond in groups.items():
-
-        samples[key][samples['pit'] == pit] = cond
-
-    assert (samples[key] != -1).all(), "Some samples have no condition"
-
-
-
+pd.set_option('display.max_rows', 120)
+np.set_printoptions(threshold=np.nan)
 
 
 class ClassificationExperiment(object):
@@ -150,23 +120,6 @@ class ClassificationExperiment(object):
         self._intra = intra_scores
         self._inter = inter_scores
 
-    # Unused ?
-    # def chi2_distance(self, sample1, sample2):
-    #     """Compare two samples together using the Chi2 method"""
-
-    #     return ((sample1 - sample2)*(sample1 - sample2) / (sample1+sample2 + 0.0001)).sum()
-
-    # def euclidean_distance(self, sample1, sample2):
-    #     """Compare two samples using the euclidean distance"""
-    #     return ((sample1-sample2)*(sample1-sample2)**2).sum()
-
-    # def visualize_samples(self, key='condition'):
-    #     """Visualize the samples depending on the experimental conditions"""
-    #     samples = self._data
-    #     samples.groupby(key).boxplot(rot=90, grid=True)
-    #     plt.savefig('data_distribution.pdf')
-
-
     def visualize_performance(self):
         intra = self._intra
         inter = self._inter
@@ -230,43 +183,28 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         logging.info('Classifier running with %s ' , self._label)
         #super(ClassificationExperimentMachineLearning, self).run()
         self._remove_unused_columns()
-        if self.type=='labeled':
+        if self.type=='supervised':
             self._compute_comparison_scoress_with_cross_validation()
         else:
             self._compute_comparison_scores_unlabeled()
             
     def _various_algorithm(self,samples,pits):
-        import time
 
-        import numpy as np
-        import matplotlib.pyplot as plt
-
-        from sklearn import cluster, datasets
-        from sklearn.neighbors import kneighbors_graph
-        from sklearn.preprocessing import StandardScaler
         np.random.seed(0)
 
-        # Generate datasets. We choose the size big enough to see the scalability
-        # of the algorithms, but not too big to avoid too long running times
-#        n_samples = 1500
-#        noisy_circles = datasets.make_circles(n_samples=n_samples, factor=.5,
-#                                              noise=.05)
-#        print noisy_circles
-#        noisy_moons = datasets.make_moons(n_samples=n_samples, noise=.05)
-#        blobs = datasets.make_blobs(n_samples=n_samples, random_state=8)
-#        no_structure = np.random.rand(n_samples, 2), None
+
 
         colors = np.array([x for x in 'bgrcmykbgrcmykbgrcmykbgrcmyk'])
         colors = np.hstack([colors] * 20)
 
-        # clustering_names = [
-        #     'Kmeans','MiniBatchKMeans', 'AffinityPropagation', 'MeanShift',
-        #     'SpectralClustering', 'Ward', 'AgglomerativeClustering',
-        #     'DBSCAN', 'Birch']
+        clustering_names = [
+            'Kmeans','MiniBatchKMeans', 'AffinityPropagation', 'MeanShift',
+            'SpectralClustering', 'Ward', 'AgglomerativeClustering',
+            'DBSCAN', 'Birch']
 
 
         #clustering_names = ['Kmeans','MiniBatchKMeans', 'AffinityPropagation', 'MeanShift', 'SpectralClustering']
-        clustering_names = ['Kmeans','MiniBatchKMeans', 'AffinityPropagation']
+        # clustering_names = ['Kmeans','MiniBatchKMeans', 'AffinityPropagation']
 
 
         plt.figure(figsize=(len(clustering_names) * 2 + 3, 9.5))
@@ -275,7 +213,6 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
 
         plot_num = 1
         full_result=pd.DataFrame()
-        #datasets = [noisy_circles, noisy_moons, blobs, no_structure,samples]
         datasets = [samples]
 
         for i_dataset, dataset in enumerate(datasets):
@@ -302,9 +239,8 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             two_means = cluster.MiniBatchKMeans(n_clusters=N_CLUSTERS)
            
             k_means = cluster.KMeans(init='k-means++', n_clusters=N_CLUSTERS, n_init=100)
- 
 
-        
+
             ward = cluster.AgglomerativeClustering(n_clusters=N_CLUSTERS, linkage='ward',
                                                    connectivity=connectivity)
             spectral = cluster.SpectralClustering(n_clusters=N_CLUSTERS,
@@ -346,6 +282,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                     #print "result per pit in kmean function"
                     print result_per_pit
                     full_result = pd.concat([full_result, result_per_pit['scores']], axis=1)
+                    self._scores =y_pred
 
                 #plot
                 plt.subplot(1, len(clustering_algorithms), plot_num)
@@ -366,25 +303,13 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                          horizontalalignment='right')
                 plot_num += 1
 
-            # print full_result
-            # full_result.reindex(clustering_names)
-            # 
-           
-
+            #
             full_result['pits']=result_per_pit['pits']
-
-            self.vote_per_pit_per_image(full_result)
-
+            # self.vote_per_pit_per_image(full_result)
             full_result = self.vote(full_result)
-
             print full_result
-
-            self.vote_per_pit(full_result)
-
-
-           
-            # full_result.plot(x=None, y=None, kind="scatter")
-
+            # full_result.to_csv(os.path.join(OUTPUT_DIR, "result_per_image.csv"),sep=",")
+            # self.vote_per_pit(full_result)
 
         plt.show()
 
@@ -407,9 +332,6 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             print "Classification Direct: "+index
             print row.mode().max()
 
-            # print "Classification Per Pit : "+index
-            # print row['max'].mode()
-
 
     def _dbscan(self,samples,pits):
         from sklearn.cluster import DBSCAN
@@ -417,16 +339,6 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         from sklearn.datasets.samples_generator import make_blobs
         from sklearn.preprocessing import StandardScaler
 
-
-#        ##############################################################################
-#        # Generate sample data
-#        centers = [[1, 1], [-1, -1], [1, -1]]
-#        X, labels_true = make_blobs(n_samples=750, centers=centers, cluster_std=0.4,
-#                                    random_state=0)
-#
-#        X = StandardScaler().fit_transform(X)
-
-        ##############################################################################
         # Compute DBSCAN
         db = DBSCAN(eps=0.3, min_samples=10).fit(samples)
         core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
@@ -643,11 +555,9 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                         #plt.title("%s metric with %s linkage" % metric,linkage, size=17)
                         plt.axis('off')
                         plt.tight_layout()
-
             plt.show()
-            
-            
-            
+
+
     # this function is not connected to the data
     def _label_propagation(self):
         
@@ -775,53 +685,6 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             print cluster
         print result_per_pit_df
         
-        ############################################################################################
-                #try to clusterize results
-        ############################################################################################
-#        
-#        DENSITY_RESULT_BINS=[0,1,2,3,4,5]
-#        #print DENSITY_RESULT_BINS
-#        DENSITY_RESULT_LABELS = ["HIST_RESULT_%d" % _ for _ in DENSITY_RESULT_BINS]
-#        #print DENSITY_RESULT_LABELS
-#        sample_result=[]
-#        counter=1
-#        for ROI, data in result_per_pit_df.groupby('pits'):
-#            print data['scores']
-#            print ROI
-##            #print ROI
-#            hist, bins = np.histogram(data['scores'], bins=DENSITY_RESULT_BINS)
-##            
-##            #hist = hist/float(hist.sum())
-##            #print hist
-##        # Build the features
-#            feat = OrderedDict( zip(DENSITY_RESULT_LABELS, hist))
-#            print feat
-##
-#            df = pd.DataFrame([feat])
-#            print df
-##
-#            df = df.reindex_axis(feat.keys(), axis=1) #order seems eroneous
-#            print df
-##
-#            df['index'] = counter
-##
-#            df = df.set_index('index')
-#            print df
-#            sample_result.append(df)
-#            counter+=1
-#        sample= pd.concat(sample_result)
-#        #sample=pd.DataFrame(sample_result)
-#        sample.to_csv(os.path.join(OUTPUT_DIR, "pre_result.csv"),sep=",")
-#        sample= sample[sample.columns.tolist()].values
-#        print sample
-#        k_means.fit(sample)
-#        classif=k_means.predict(sample)
-#        #classif=k_means.fit_predict(sample)
-#        print classif
-        ############################################################################################
-                #try to clusterize results end
-        ############################################################################################
-        
         
         ############################################################################################
         # Compute clustering with MiniBatchKMeans
@@ -829,8 +692,6 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         
         mbk = MiniBatchKMeans(init='k-means++', n_clusters=N_CLUSTERS, batch_size=batch_size,
                               n_init=100, max_no_improvement=10, verbose=0)
-        
-        
         
         t0 = time()
 
@@ -918,23 +779,6 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             raise SkipTest("Skipping because SciPy version earlier than 0.12.0 and "
                    "thus does not include the scipy.misc.face() image.")
 
-
-        # load the raccoon face as a numpy array
-#        try:
-#            face = sp.face(gray=True)
-#            print "first face"
-#            print face
-#        except AttributeError:
-#            # Newer versions of scipy have face in misc
-#            from scipy import misc
-#            face = misc.face(gray=True)
-#            print "first face"
-#            print face
-
-        # Resize it to 10% of the original size to speed up the processing
-#        face = sp.misc.imresize(face, 0.10) / 255.
-#        print "second face"
-#        print face
         # Convert the image into a graph with the value of the gradient on the
         # edges.
         graph = image.img_to_graph(samples)
@@ -1009,16 +853,10 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
                 del columns[columns.index(column)] 
         #print samples
         samples = samples[columns].values
-        
-        #print"########### sample values"
-        #print samples
-        
-        
-        
-        
+        # print samples
+        print"########### sample values"
+        print samples
         # self._k_mean(samples, pits)
-        
-        
         # self._label_propagation()
         #self._agglomerative_clustering(samples,pits,'unstructured')
         #self._spectral_clustering(samples)
@@ -1030,16 +868,10 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
     def _compute_comparison_scoress_with_cross_validation(self, key='condition'):
         """Compute the scores, thanks to cross validation"""
 
-
         samples = self._data
         samples2=samples
         samples.to_csv(os.path.join(OUTPUT_DIR, "sample_before_classification.csv"),sep=",")
 
-
-        #print"########### samples"
-        #print samples
-
-        
         # make a transformation of the labels
         labels = samples[key].values
         unique_labels = np.unique(labels)
@@ -1056,9 +888,7 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             labels[labels=='condition2'] = 2
             labels[labels=='condition3'] = 3
             labels[labels=='condition4'] = 4
-            #print labels
-        #print"########### LABELS"
-        #print labels
+
         # get the columns of interest
         columns = samples.columns.tolist()
         #print"########### columns"
@@ -1069,11 +899,6 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
 
         # We have few elements => use a leave one out method
         values = samples[columns].values
-
-        
-        #print"########### values"
-        #print values
-
         scores = np.zeros(len(values))
         scores_label=np.zeros(len(values))
         loo = LeaveOneOut(len(values))
@@ -1081,14 +906,8 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
         #logging.info('Number of samples: ' + str(len(values)))
         logging.info('Classifier: %s' , self._selected_classifier)
 
-
-        
         for train, test in loo:
             
-            
-            #print train 
-            #print test
-
             # Get the partitions
             samples_train = values[train]
             samples_test = values[test].reshape(1,  - 1)
@@ -1146,27 +965,16 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
             # make the classification
             # XXX Hack to see if it is multiclass or not
             if 2 == len(np.unique(labels_train)) :
-                #logging.info('1 clf.predict_proba(samples_test)[:,-1]')
                 score = clf.predict_proba(samples_test)[:,-1]
                 #print clf.predict(samples_test)[:,-1]
                 score_label = clf.predict(samples_test)
-                #logging.info('2 clf.predict_proba(samples_test)[:,-1]')
-                #print score
-                #print labels_test
 
             else:
                 score = clf.predict_proba(samples_test)
                 score_label = clf.predict(samples_test)
-                
-                
-                
-                
-                
-                
+
             scores[test] = score
             scores_label[test] = score_label
-            
-            #counter+=1
 
         self._scores = scores
         self._scores_label=scores_label
@@ -1211,16 +1019,16 @@ class ClassificationExperimentMachineLearning(ClassificationExperiment):
 
 
 class DensityHistoClassifier(ClassificationExperimentMachineLearning):
-    """We want an experiment which keeps only the density histogram"""
 
-    def __init__(self, data, classifier, columns,type,density_histogram_labels,msd_histogram_labels,dinst_histogram_labels):
+    def __init__(self, data, classifier, columns, type, density_histogram_labels, msd_histogram_labels, dinst_histogram_labels, wtracer_histogram_labels):
         super(DensityHistoClassifier, self).__init__(data, "density_histo_classifier", classifier)
         print "create new density histo classifier for "+ columns
         self.columns = columns
         self.type=type
-        self.density_histogram_labels=density_histogram_labels     
+        self.density_histogram_labels=density_histogram_labels
         self.msd_histogram_labels=msd_histogram_labels
         self.dinst_histogram_labels=dinst_histogram_labels
+        self.wtracer_histogram_labels=wtracer_histogram_labels
 
     
     def get_columns_to_remove(self):
@@ -1230,7 +1038,7 @@ class DensityHistoClassifier(ClassificationExperimentMachineLearning):
         if self.columns == 'density_hist':
             keep_only = self.density_histogram_labels
             
-        elif self.columns == 'diff_hist':
+        elif self.columns == 'dinst_hist':
             keep_only = self.dinst_histogram_labels
 
         elif self.columns == 'trajectory_hist':
@@ -1239,12 +1047,14 @@ class DensityHistoClassifier(ClassificationExperimentMachineLearning):
         elif self.columns == 'msd_hist':
             keep_only = self.msd_histogram_labels
 
+        elif self.columns == 'wtracer_hist':
+            keep_only = self.wtracer_histogram_labels
+
         elif self.columns == 'all':
             return []
 
         else:
             raise Exception(self.columns + ' unknown')
-
 
         return set(columns) - set(keep_only)
 

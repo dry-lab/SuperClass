@@ -18,13 +18,14 @@ INPUT_DIR=""
 CACHE_DIR =""
 CLASSIFICATION_MODE = 'unsupervised'
 PREPROCESSED_MODE='normalized'
-IMAGEORPIT = "pit"
+IMAGEORPIT = "pits"
 BINNING_TYPE='freedman_std'
 
 #BINNING_TYPE='freedman_all'
 #BINNING_TYPE='freedman_max'
 #BINNING_TYPE='fixed'
 
+NB_CONDITIONS = 0
 
 #headers for Anne file
 PER_IMAGE_COLS_ANNE = (
@@ -112,18 +113,18 @@ TRAJECTORY_FRAMES_HISTOGRAM_LABELS = ["HIST_NB_FRAMES_%f" % _ for _ in TRAJECTOR
 groups = {
         'C1': 'LIVING',
         'C2': 'LIVING',
-        'A1': 'FIXED1',
-        'A2': 'FIXED2',
-        'A3': 'FIXED3',
-        'A4': 'FIXED4',
-        'A5': 'FIXED5',
-        'A6': 'FIXED6',
-        'B1': 'FIXED7',
-        'B2': 'FIXED8',
-        'B3': 'FIXED9',
-        'B4': 'FIXED10',
-        'B5': 'FIXED11',
-        'B6': 'FIXED12',
+        'A1': 'FIXED',
+        'A2': 'FIXED',
+        'A3': 'FIXED',
+        'A4': 'FIXED',
+        'A5': 'FIXED',
+        'A6': 'FIXED',
+        'B1': 'FIXED',
+        'B2': 'FIXED',
+        'B3': 'FIXED',
+        'B4': 'FIXED',
+        'B5': 'FIXED',
+        'B6': 'FIXED',
 }
 
 

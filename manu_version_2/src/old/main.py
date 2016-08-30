@@ -23,6 +23,13 @@ from constants import *
 from graphic_functions import *
 
 
+def makeMaps(img_df, obj_df, point_df):
+
+    map_img_obj = img_df.merge(obj_df, how='inner', on='ImageNumber')
+    map_img_obj.drop(['plate', 'Image_PathNames_Path_SR_Objects', 'Image_FileNames_Filename_SR_Objects', 'Image_PathNames_Path_SR_Tracks', 'Image_FileNames_Filename_SR_Tracks', 'Points_Count', 'Tracks_Count'], axis=1, inplace=True)
+    map_img_obj.to_csv(os.path.join(OUTPUT_DIR, "map_img_obj.csv"),sep=",")
+
+
 
 def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_cols, per_point_file,per_point_cols, groups, remove_pits=None):
     """Launch the experiment on the dataset of interest."""
@@ -31,17 +38,23 @@ def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_
     obj_df = pd.read_csv(per_object_file, names=per_object_cols, header=None, sep=',', low_memory=False)
     point_df = pd.read_csv(per_point_file, names=per_point_cols, header=None, sep=',', low_memory=False)
 
+    # makeMaps(img_df, obj_df, point_df)
+
     global samples
-    
+
     if PREPROCESSED_MODE=="normalized":##
-        obj_df=preprocess_object_data(obj_df)
+        
+        obj_df['Diffusion_Coefficient'] = np.log(obj_df['Diffusion_Coefficient'])
+        obj_df=preprocess_data(obj_df, "Diffusion_Coefficient")
+        obj_df=preprocess_data(obj_df, "MSD_0")
         point_df=preprocess_data(point_df, "Dinst")
-        # point_df=preprocess_data(point_df, "DinstL")
-        samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS=extract_features_bin_std(obj_df)
+        point_df=preprocess_data(point_df, "DinstL")
+
+        samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS=extract_features_bin_normalized(obj_df)
         dinst,DINST_HISTOGRAM_LABELS=extract_dinst_features(point_df)
-        # dinst,DINST_HISTOGRAM_LABELS=extract_dinstL_features(point_df)
-        # dinst,DINST_HISTOGRAM_LABELS=extract_wave_tracer_features(point_df)
-        samples = pd.concat([samples, dinst], axis=1,verify_integrity=False)
+        dinstL,DINSTL_HISTOGRAM_LABELS=extract_dinstL_features(point_df)
+        wTracer,WTRACER_HISTOGRAM_LABELS=extract_wave_tracer_features(point_df)
+        samples = pd.concat([samples, dinst, dinstL, wTracer], axis=1,verify_integrity=False)
 
     else :
         if BINNING_TYPE=="freedman_all":
@@ -58,15 +71,16 @@ def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_
     pits = associate_pit_to_samples(samples, img_df)
     samples["pit"] = pits 
 
-    if IMAGEORPIT =="pit":
+    if IMAGEORPIT =="pits":
         #------------------------------------------------------------ classif per pit
         samples_per_pit = samples.groupby('pit')
         samples_per_pit=samples_per_pit.aggregate(np.median)
         print samples_per_pit
         samples=samples_per_pit
 
+    # remove_pits = {0:'B3',1:'B9',2:'G6',3:'B11',4:'B5',5:'G8'}
     # Remove the pits which are not interested
-    if remove_pits:
+    if remove_pits is not None:
         samples = remove_pits(samples, remove_pits)
 
 
@@ -74,10 +88,9 @@ def launch_experiment(per_image_file, per_image_cols,per_object_file,per_object_
         group_by_condition(samples,groups)
         run_cell_classification_algo(samples, DENSITY_HISTOGRAM_LABELS, MSD_HISTOGRAM_LABELS, DINST_HISTOGRAM_LABELS)
     else:  
-        run_unsupervised_cell_classification_algo(samples, DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
-        # run_unsupervised_cell_classification_algo(samples_per_pit, DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
+        run_unsupervised_cell_classification_algo(samples, DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS, WTRACER_HISTOGRAM_LABELS)
 
-
+    # run_cell_classification_algo(samples_per_pit, DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS)
 
 
 def remove_pits(samples, pitsToRemove):
@@ -92,13 +105,13 @@ def remove_pits(samples, pitsToRemove):
     return samples
 
 
-def run_unsupervised_cell_classification_algo(samples, DENSITY_HISTOGRAM_LABELS, MSD_HISTOGRAM_LABELS, DINST_HISTOGRAM_LABELS):
+def run_unsupervised_cell_classification_algo(samples, DENSITY_HISTOGRAM_LABELS, MSD_HISTOGRAM_LABELS, DINST_HISTOGRAM_LABELS, WTRACER_HISTOGRAM_LABELS):
     #button_unsupervised_run.configure(state=DISABLED)
     classifier_scores = {}
-    # features=['density_hist','msd_hist','all','diff_hist']
-    features=['density_hist','msd_hist']
+    features=['density_hist','msd_hist','dinst_hist', 'wtracer_hist','all']
+    # features=['density_hist','msd_hist']
 
-    for column in ['all']: #features : #['diff_hist']:
+    for column in features : #['diff_hist']: ['all']
         classifier = DensityHistoClassifier(
                 samples,
                 'K-mean', 
@@ -106,7 +119,8 @@ def run_unsupervised_cell_classification_algo(samples, DENSITY_HISTOGRAM_LABELS,
                 CLASSIFICATION_MODE,
                 DENSITY_HISTOGRAM_LABELS,
                 MSD_HISTOGRAM_LABELS,
-                DINST_HISTOGRAM_LABELS)
+                DINST_HISTOGRAM_LABELS,
+                WTRACER_HISTOGRAM_LABELS)
         classifier.run()
 
         # Store the results
@@ -122,113 +136,100 @@ def run_unsupervised_cell_classification_algo(samples, DENSITY_HISTOGRAM_LABELS,
     
     
 def run_cell_classification_algo(samples,DENSITY_HISTOGRAM_LABELS,MSD_HISTOGRAM_LABELS,DINST_HISTOGRAM_LABELS):
-	#tkMessageBox.messagebox.showinfo('Cell Classification Algorithm (v0)', 'running on data: '+var_dataDir.get())
-	#button_run.configure(state=DISABLED)
+    #tkMessageBox.messagebox.showinfo('Cell Classification Algorithm (v0)', 'running on data: '+var_dataDir.get())
+    #button_run.configure(state=DISABLED)
 
-	# Launch the classification procedure on the various extracted features and the various classifiers
-	#distance_scores = {}
-	classifier_scores = {}
-        classifier_scores_label={}
-	#old_distance_labels= None
-	old_classifier_labels= None
-        #for column in ['all']:
-	for column in ['density_hist', 'msd_hist', 'all']: #XXX trajectory_hist removed => we do not have it
-                for classifier_name in ('SVC', 'RF', 'SVC-PCA', 'RF-PCA', 'KNN_EUCL', 'KNN_CHI2'):
-			# Compute the stuff
-			logging.info("Compute for %s %s " % (column, classifier_name))
-			classifier = DensityHistoClassifier(
-				samples,
-				classifier_name, 
-				column,
+    # classifiers = ['SVC', 'RF', 'SVC-PCA', 'RF-PCA', 'KNN_EUCL', 'KNN_CHI2']
+    # print "coucou"
+    # Launch the classification procedure on the various extracted features and the various classifiers
+    distance_scores = {}
+    classifier_scores = {}
+    classifier_scores_label = {}
+    old_distance_labels= None
+    old_classifier_labels= None
+    for column in ['density_hist', 'msd_hist', 'dinst_hist', 'all']: #XXX trajectory_hist removed => we do not have it
+        for classifier_name in ['SVC', 'RF', 'SVC-PCA', 'RF-PCA', 'KNN_EUCL', 'KNN_CHI2']:
+            print classifier_name
+            classifier = DensityHistoClassifier(
+                samples,
+                classifier_name, 
+                column,
                 CLASSIFICATION_MODE,
                 DENSITY_HISTOGRAM_LABELS,
                 MSD_HISTOGRAM_LABELS,
                 DINST_HISTOGRAM_LABELS)
-			classifier.run()
+            classifier.run()
 
-			# Store the results
-			classifier_scores["%s %s" % (classifier_name, column)] = classifier._scores
-                        classifier_scores_label["%s %s" % (classifier_name, column)] = classifier._scores_label
-			classifier_labels = classifier._true_labels
-			if old_classifier_labels is not None:
-				assert np.all(classifier_labels == old_classifier_labels)
-			old_classifier_labels = classifier_labels
+            # Store the results
+            classifier_scores["%s %s" % (classifier_name, column)] = classifier._scores
+            classifier_scores_label["%s %s" % (classifier_name, column)] = classifier._scores_label
+            classifier_labels = classifier._true_labels
+            if old_classifier_labels is not None:
+                assert np.all(classifier_labels == old_classifier_labels)
+            old_classifier_labels = classifier_labels
 
 
-	# Display the results
-	marker = {
-                'SVC' :'^', 
-		'RF':'<', 
-		'SVC-PCA': '>', 
-		'RF-PCA': "v", 
-		'KNN_EUCL' : 's', 
-		'KNN_CHI2': 'o'
-	}
-	fig=plt.figure()
-        
-	if 2 == nb_conditions:
-		for classifier_name in classifier_scores:
-			print classifier_name 
-			print classifier_scores[classifier_name]
-                        print classifier_scores_label[classifier_name]
-			print "#####"
-			fpr, tpr, thresholds = roc_curve(classifier_labels, classifier_scores[classifier_name])
-			roc_auc = auc(fpr, tpr)
-			plt.plot(fpr, tpr, 
-					label='%s (area = %0.2f)' % (classifier_name, roc_auc),
-					marker=marker[classifier_name.split()[0]])
-                plt.plot([0, 1.5], [0, 1.05], 'k--')
-		plt.xlim([0.0, 1.5])
-		plt.ylim([0.0, 1.05])
-		plt.xlabel('False Positive Rate')
-		plt.ylabel('True Positive Rate')
-		plt.title('Receiver operating characteristic')
-		plt.legend(loc="lower right")
-                
-                
-	else:
-		for classifier_name in classifier_scores:
-			#print(classifier_name)
-			#print(classification_report(classifier_labels, classifier_scores[classifier_name]))
-                        print classifier_name 
-			print classifier_scores[classifier_name]
-                        print classifier_scores_label[classifier_name]
+    # Display the results
+    marker = {
+        'SVC' :'^', 
+        'RF':'<', 
+        'SVC-PCA': '>', 
+        'RF-PCA': "v", 
+        'KNN_EUCL' : 's', 
+        'KNN_CHI2': 'o'
+    }
+    fig=plt.figure()
 
-#			cm = confusion_matrix(classifier_labels, classifier_scores[classifier_name])
-#			cm = cm / np.sum(cm, axis=1).astype(float)
-#			plt.matshow(cm, vmin=0, vmax=1)
-#			plt.title('Confusion matrix')
-#			plt.colorbar()
-#			plt.ylabel('True label')
-#			plt.xlabel('Predicted label')
-#			plt.title(classifier_name)
+    if 2 == NB_CONDITIONS:
+        for classifier_name in classifier_scores:
+            print classifier_name 
+            print classifier_scores[classifier_name]
+            print classifier_scores_label[classifier_name]
+            print "#####"
+            fpr, tpr, thresholds = roc_curve(classifier_labels, classifier_scores[classifier_name])
+            roc_auc = auc(fpr, tpr)
+            plt.plot(fpr, tpr,
+                label='%s (area = %0.2f)' % (classifier_name, roc_auc),
+                marker=marker[classifier_name.split()[0]])
+            plt.plot([0, 1.5], [0, 1.05], 'k--')
+        plt.xlim([0.0, 1.5])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('Receiver operating characteristic')
+        plt.legend(loc="lower right")
+    else:
+        for classifier_name in classifier_scores:
+            # print(classifier_name)
+            #print(classification_report(classifier_labels, classifier_scores[classifier_name]))
+            print classifier_name 
+            print classifier_scores[classifier_name]
+            print classifier_scores_label[classifier_name]
 
-	plt.show()
-        fig.savefig(os.path.join(OUTPUT_DIR, "roc_curve.pdf"),dpi=fig.dpi)
+			# cm = confusion_matrix(classifier_labels, classifier_scores[classifier_name])
+			# cm = cm / np.sum(cm, axis=1).astype(float)
+			# plt.matshow(cm, vmin=0, vmax=1)
+			# plt.title('Confusion matrix')
+			# plt.colorbar()
+			# plt.ylabel('True label')
+			# plt.xlabel('Predicted label')
+			# plt.title(classifier_name)
+
+   #  plt.show()
+   #  fig.savefig(os.path.join(OUTPUT_DIR, "roc_curve.pdf"),dpi=fig.dpi)
 
 
 def group_by_condition(samples, groups):
-    # Replace each different fixed condition by a similar on
-    # Trouver un autre systeme
-    # if CONSIDER_ALL_FIXED_AS_EQUAL:
-    for key in groups:
-        if groups[key].startswith('FIXED'):
-            groups[key] = 'FIXED'
 
-    # replace pits by condition
-    key='condition'
-    samples[key] = None
+    print "SAMMMPLEEEES"
+    print samples
+    samples['condition']=None
     for pit, cond in groups.items():
-        samples[key][samples['pit'] == pit] = cond
-    assert (samples[key] != -1).all(), "Some samples have no condition"
-
-    samples.to_csv(os.path.join(OUTPUT_DIR, "test_pit_merged2new3.csv"),sep=",")
-
-    assert not np.any(samples['condition'].isnull()), "ATTENTION, the conditions have not been set (verify the groups)"
+        samples['condition'][samples['pit'] == pit] = cond
 
     samples.groupby('condition').boxplot(rot=90,return_type='axes')
-    global nb_conditions
-    nb_conditions = len(np.unique(samples['condition']))
+    global NB_CONDITIONS
+    NB_CONDITIONS = len(np.unique(samples['condition']))
 
 
 def main():
@@ -253,7 +254,6 @@ def main():
 
     if args['nclusters'] is not None:
         N_CLUSTERS = args['nclusters']
-        print "toto"
 
     if args['classification'] is not None:
         CLASSIFICATION_MODE = args['classification']
