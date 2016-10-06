@@ -8,7 +8,11 @@ import scipy as sp
 from scipy import stats
 import argparse
 from collections import OrderedDict
+
+from dbscan import *
 from various_algorithm import *
+from kmeans import *
+from agglomerative_clustering import *
 
 global N_CLUSTERS
 global OUTPUT_DIR
@@ -76,7 +80,7 @@ def addDinstDuration ():
     temp = point_df.drop_duplicates(['ImageNumber', 'WaveTracerID', 'WaveLength'])
     temp2 = temp[['ImageNumber', 'WaveTracerID', 'WaveLength']]
     result = pd.merge(obj_df, temp2, how='left', on=['ImageNumber', 'WaveTracerID'])
-    obj_df =  result
+    obj_df = result
 
 
 def addWellToAllDataFrame():
@@ -271,6 +275,8 @@ def main():
     else:
         LOGFEATURES=""
 
+    print(FEATURES)
+
     #LoadFiles
     per_image_file = os.path.join(INPUT_DIR, "per_image_bioinfo_Crosslink240415.csv")
     per_object_file = os.path.join(INPUT_DIR, "per_object_bioinfo_Crosslink240415.csv")
@@ -287,6 +293,8 @@ def main():
 
     #Add the dinst duration column
     addDinstDuration()
+
+    print obj_df
 
     # Preprocess data, normalize, log scale.
     processingOnFeatures(FEATURES, LOGFEATURES)
@@ -317,17 +325,17 @@ def main():
     # pits2= fullDfWoLabels.reset_index()['index'].apply(lambda idx: LUT[idx]).values
 
     # fullDfWoLabels["well"] = pits2 
-    print "SAMPPPLEEEEESSSSS"
+    print "SAMPLES"
     print fullDfWoLabels
 
-    print "# Type of sample tab"
+    # print "# Type of sample tab"
     # print type(fullDfWoLabels)
 
-    print "# Type of well column"
+    # print "# Type of well column"
     # print type(fullDfWoLabels['well'])
     # print type(fullDfWoLabels['Diffusion_Coefficient_std15.613073'])
 
-    print "# Type of well"
+    # print "# Type of well"
     # print type(fullDfWoLabels['well'][1])
     # print type(fullDfWoLabels['Diffusion_Coefficient_std15.613073'][1])
     # fullDfWoLabels.astype(float)
@@ -337,9 +345,9 @@ def main():
 
     # samples_per_pit = fullDfWoLabels.groupby('well')
     # samples_per_pit.drop(['well'])
-    print "samples_per_pit"
+    # print "samples_per_pit"
     # print samples_per_pit
-    print " END samples_per_pit"
+    # print " END samples_per_pit"
     # samples_per_pit=samples_per_pit.aggregate(np.median)
     
     # print samples_per_pit
@@ -359,6 +367,9 @@ def main():
     print "List of index"
     print index_list
     result = various_algorithm_launch(samples, index_list, N_CLUSTERS, TARGET)
+    # result = dbscan_launch(samples, index_list)
+    # result = k_mean_launcher(samples, index_list, N_CLUSTERS)
+    # agglomerative_clustering_launcher(samples, index_list, "structured", N_CLUSTERS)
 
     print "Results"
     print result

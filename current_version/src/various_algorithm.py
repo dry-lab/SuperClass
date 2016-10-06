@@ -1,29 +1,11 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy as sp
 import time
-from scipy import stats
-from sklearn import manifold
-from sklearn.metrics import roc_curve, auc, classification_report, confusion_matrix
-from sklearn.svm import SVC
-from sklearn.cross_validation import LeaveOneOut
+
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble.forest import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics.pairwise import additive_chi2_kernel
-from sklearn.decomposition import PCA
-from sklearn.feature_extraction import image
-from sklearn.cluster import spectral_clustering
-from sklearn.utils.testing import SkipTest
-from sklearn.utils.fixes import sp_version
-from sklearn.cluster import MiniBatchKMeans,KMeans
-from sklearn.metrics.pairwise import pairwise_distances_argmin
-from sklearn.externals import joblib
 from sklearn.neighbors import kneighbors_graph
 from sklearn import cluster
-from sklearn import datasets
-from sklearn.semi_supervised import label_propagation
 
 
 def various_algorithm_launch(samples, pits, nb_clusters, target):
@@ -78,7 +60,7 @@ def various_algorithm_launch(samples, pits, nb_clusters, target):
         spectral = cluster.SpectralClustering(n_clusters=nb_clusters,
                                               eigen_solver='arpack',
                                               affinity="nearest_neighbors")
-        dbscan = cluster.DBSCAN(eps=.2)
+        dbscan = cluster.DBSCAN(eps=.3)
         affinity_propagation = cluster.AffinityPropagation(damping=.9,
                                                            preference=-200)
 
