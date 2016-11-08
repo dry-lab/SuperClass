@@ -48,28 +48,19 @@ def various_algorithm_launch(samples, pits, nb_clusters, target):
         # make connectivity symmetric
         connectivity = 0.5 * (connectivity + connectivity.T)
 
+
         # create clustering estimators
         ms = cluster.MeanShift(bandwidth=bandwidth, bin_seeding=True)
         two_means = cluster.MiniBatchKMeans(n_clusters=nb_clusters)
-       
-        k_means = cluster.KMeans(init='k-means++', n_clusters=nb_clusters, n_init=100)
-
-
-        ward = cluster.AgglomerativeClustering(n_clusters=nb_clusters, linkage='ward',
-                                               connectivity=connectivity)
-        spectral = cluster.SpectralClustering(n_clusters=nb_clusters,
-                                              eigen_solver='arpack',
-                                              affinity="nearest_neighbors")
-        dbscan = cluster.DBSCAN(eps=.3)
-        affinity_propagation = cluster.AffinityPropagation(damping=.9,
-                                                           preference=-200)
-
-        average_linkage = cluster.AgglomerativeClustering(
-            linkage="average", affinity="cityblock", n_clusters=nb_clusters,
-            connectivity=connectivity)
-        
-
+        k_means = cluster.KMeans(init='k-means++', n_clusters=nb_clusters, n_init=20, algorithm='full')
+        ward = cluster.AgglomerativeClustering(n_clusters=nb_clusters, linkage='ward', connectivity=connectivity)
+        spectral = cluster.SpectralClustering(n_clusters=nb_clusters, eigen_solver='arpack', affinity="nearest_neighbors")
+        dbscan = cluster.DBSCAN(eps=0.3, min_samples=10).fit(samples)
+        affinity_propagation = cluster.AffinityPropagation(damping = 0.5, max_iter = 200, convergence_iter = 15, copy = True, preference = None, affinity = 'euclidean', verbose = False)
+        average_linkage = cluster.AgglomerativeClustering(linkage="average", affinity="cityblock", n_clusters=nb_clusters, connectivity=connectivity)
         birch = cluster.Birch(n_clusters=nb_clusters)
+
+
         clustering_algorithms = [
             k_means,two_means, affinity_propagation, ms, spectral, ward, average_linkage,
             dbscan, birch]

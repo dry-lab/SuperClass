@@ -13,6 +13,8 @@ from dbscan import *
 from various_algorithm import *
 from kmeans import *
 from agglomerative_clustering import *
+from gridsearch import *
+from gridsearch_variousAlgorithm import *
 
 global N_CLUSTERS
 global OUTPUT_DIR
@@ -74,6 +76,55 @@ groups2 = {
 }
 
 
+# groupsByCondition = {
+#         'B10': 100,
+#         'B4': 100,
+#         'G7': 100,
+#         'B11': 300,
+#         'B5': 300,
+#         'G8': 300,
+#         'B2': 0,
+#         'B8': 0,
+#         'G5': 0,
+#         'B3': 1000,
+#         'B9': 1000,
+#         'G6': 1000
+# }
+
+
+groupsByCondition = {
+    20: 1,
+    26: 1,
+    9: 1,
+    6: 2,
+    14: 2,
+    17: 2,
+    2: 3,
+    12: 3,
+    5: 3,
+    7: 4,
+    27: 4,
+    18: 4,
+    16: 5,
+    15: 5,
+    10: 5,
+    25: 6,
+    24: 6,
+    22: 6,
+    19: 7,
+    8: 7,
+    23: 7,
+    3: 8,
+    30: 8,
+    4: 8,
+    29: 9,
+    28: 9,
+    21: 9,
+    13: 10,
+    1: 10,
+    11: 10
+}
+
 def addDinstDuration ():
     global obj_df, point_df
     point_df['WaveLength'] = point_df.groupby(['ImageNumber','WaveTracerID'])['WaveTracerID'].transform('count')
@@ -92,7 +143,7 @@ def addWellToAllDataFrame():
 
 
 def logScale(df, colName):
-    df[colName+"_log"] = np.log(df[colName])
+    df[colName+"_log"] = np.log10(df[colName])
     return df
 
 def normalize_data(df, colName):
@@ -155,33 +206,31 @@ def createVectors(df, target):
     finalDf = {}
     for column in df:
         if column not in ['well', 'ImageNumber']:
-            # print column
-            bins = freedman_bin_width( df[column])
-            # hist, bins = np.histogram(df[column], bins='fd')
+
+            bins = freedman_bin_width(df[column])
             maxVal, minVal, labels = getBinInfos(bins, column)
             vectorColumnsMap[column] = {}
-            vectorColumnsMap[column]['max']= maxVal
-            vectorColumnsMap[column]['min']= minVal
-            vectorColumnsMap[column]['labels']= labels
-            vectorColumnsMap[column]['bins']= bins
+            vectorColumnsMap[column]['max'] = maxVal
+            vectorColumnsMap[column]['min'] = minVal
+            vectorColumnsMap[column]['labels'] = labels
+            vectorColumnsMap[column]['bins'] = bins
     # print vectorColumnsMap # Binning values and labels for each columns
 
 
     for ROI, data in df.groupby(target):
-        vector =[]
+        vector = []
         for column in data:
             if column not in ['well', 'ImageNumber']:
-                temp = generate_feature_vector(data[column],vectorColumnsMap[column]['min'],vectorColumnsMap[column]['max'],vectorColumnsMap[column]['bins'],vectorColumnsMap[column]['labels'])
+                temp = generate_feature_vector(data[column], vectorColumnsMap[column]['min'], vectorColumnsMap[column]['max'], vectorColumnsMap[column]['bins'], vectorColumnsMap[column]['labels'])
                 # vector = pd.concat([vector, temp], axis=1)
-                vector  = np.append(vector, temp)
-        finalDf[ROI]=vector
-            # else faire une map ROI -> well / imageNumber pour le reafficher a la fin
-
+                vector = np.append(vector, temp)
+        finalDf[ROI] = vector
+        # else faire une map ROI -> well / imageNumber pour le reafficher a la fin
     labelsList = []
 
     for column in vectorColumnsMap:
         if column not in ['well', 'ImageNumber']:
-            labelsList  = np.append(labelsList, vectorColumnsMap[column]['labels'])
+            labelsList = np.append(labelsList, vectorColumnsMap[column]['labels'])
     finalDf['labels']=labelsList
 
     return finalDf
@@ -190,7 +239,7 @@ def createVectors(df, target):
 def generate_feature_vector(data,min,max,hist_bins,hist_labels):
     # data[data<min] = min
     # data[data>max] = max
-    hist, bins = np.histogram(data,bins=hist_bins)
+    hist, bins = np.histogram(data, bins=hist_bins)
     hist = hist/float(hist.sum())
 
     # feat = OrderedDict( zip(hist_labels, hist))
@@ -218,6 +267,7 @@ def freedman_bin_width(data):
     n = data.size
     if n < 4:
         raise ValueError("data should have more than three entries")
+    np.percentile(data, [25, 75])
     v25, v75 = np.percentile(data, [25, 75])
     dx = 2 * (v75 - v25) / (n ** (1 / 3))
 
@@ -275,26 +325,32 @@ def main():
     else:
         LOGFEATURES=""
 
-    print(FEATURES)
+    # print(FEATURES)
 
-    #LoadFiles
-    per_image_file = os.path.join(INPUT_DIR, "per_image_bioinfo_Crosslink240415.csv")
-    per_object_file = os.path.join(INPUT_DIR, "per_object_bioinfo_Crosslink240415.csv")
-    per_point_file = os.path.join(INPUT_DIR, "per_point_bioinfo_Crosslink240415.csv")
+    ###############################
+    # LoadFiles
+    ###############################
+    # per_image_file = os.path.join(INPUT_DIR, "per_image_bioinfo_Crosslink240415.csv")
+    # per_object_file = os.path.join(INPUT_DIR, "per_object_bioinfo_Crosslink240415.csv")
+    # per_point_file = os.path.join(INPUT_DIR, "per_point_bioinfo_Crosslink240415.csv")
+
+    per_image_file = os.path.join(INPUT_DIR, "per_image.csv")
+    per_object_file = os.path.join(INPUT_DIR, "per_object.csv")
+    per_point_file = os.path.join(INPUT_DIR, "per_point.csv")
     img_df = pd.read_csv(per_image_file, names=per_image_cols, header=None, sep=',', low_memory=False)
     obj_df = pd.read_csv(per_object_file, names=per_object_cols, header=None, sep=',', low_memory=False)
-    point_df = pd.read_csv(per_point_file, names=per_point_cols, header=None, sep=',', low_memory=False)
+    point_df = pd.read_csv(per_point_file, names=per_point_cols, header=None, sep=',', low_memory=True)
 
-    #Add the well number
+    # Add the well name to each column of obj and point df
     ImageWellMap = addWellToAllDataFrame()
     dfImageWellMapping = pd.DataFrame(data=ImageWellMap.values(), index=ImageWellMap.keys())
     # print "Mapping ImageNumber -> Well"
     # print dfImageWellMapping
 
-    #Add the dinst duration column
+    # Add the dinst duration column
     addDinstDuration()
-
-    print obj_df
+    # print "obj_df"
+    # print obj_df
 
     # Preprocess data, normalize, log scale.
     processingOnFeatures(FEATURES, LOGFEATURES)
@@ -304,52 +360,59 @@ def main():
     # create a df with only the columns of interest (features and logfeatures)
     dfOfInterest = arrayOfInteret(FEATURES, LOGFEATURES)
 
+    print "dfOfInterest"
+    print dfOfInterest
+    # dfOfInterest.to_csv(os.path.join(OUTPUT_DIR, "dfOfInterest.csv"), sep=",")
+
     # create the big vector of interest sort by target (currently)
     fullDict = createVectors(dfOfInterest, TARGET)
 
     fullDf = pd.DataFrame(data=fullDict.values(), index=fullDict.keys(), columns=fullDict['labels'])
-    fullDf.to_csv(os.path.join(OUTPUT_DIR, "DataframeOfVectors.csv"), sep=",")
 
+
+    # fullDf.to_csv(os.path.join(OUTPUT_DIR, "DataframeOfVectors.csv"), sep=",")
+
+    ### Remove last line of the dataframe that contains labels of columns (MSD_0-14.5652...)
     fullDfWoLabels = fullDf.drop(['labels'])
 
 
-    #Add well name
+    ############### CREATION OF A DF FOR GRIDSEARCH #################
+    gridDf =  fullDfWoLabels
+    gridDf['well'] = dfImageWellMapping[0]
+    gridDf['condition'] = dfImageWellMapping[0]
+    gridDf['condition'] = gridDf['condition'].map(groupsByCondition)
+    gridTarget = gridDf['condition']
+    gridDf.drop('well', axis=1, inplace=True)
+    gridDf.drop('condition', axis=1, inplace=True)
+
+    # print "gridDf"
+    # print gridDf
+    # print gridTarget
+    gridColumns = gridDf.columns.tolist()
+    gridSamples = gridDf[gridColumns].values
+
+
+
+    ################# REPLACE PIT NAME by NUMBER
     # fullDfWoLabels['well']=dfImageWellMapping[0]
-
-    # fullDfWoLabels.replace(['B10','B11','B2','B3','B4','B5','B8','B9','G5','G6','G7','G8'], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], regex=True) 
-
-
+    # fullDfWoLabels.replace(['B10','B11','B2','B3','B4','B5','B8','B9','G5','G6','G7','G8'], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], regex=True)
     # pits = img_df['well']
     # imgs = img_df['ImageNumber']
     # LUT = dict(zip(imgs, pits))
     # pits2= fullDfWoLabels.reset_index()['index'].apply(lambda idx: LUT[idx]).values
 
     # fullDfWoLabels["well"] = pits2 
-    print "SAMPLES"
-    print fullDfWoLabels
-
-    # print "# Type of sample tab"
-    # print type(fullDfWoLabels)
-
-    # print "# Type of well column"
-    # print type(fullDfWoLabels['well'])
-    # print type(fullDfWoLabels['Diffusion_Coefficient_std15.613073'])
-
-    # print "# Type of well"
-    # print type(fullDfWoLabels['well'][1])
-    # print type(fullDfWoLabels['Diffusion_Coefficient_std15.613073'][1])
-    # fullDfWoLabels.astype(float)
+    # print "SAMPLES"
+    # print fullDfWoLabels
 
 
-
-
+    ################# MEDIAN OF IMAGES TO CREATE PITS [TEST] #################
     # samples_per_pit = fullDfWoLabels.groupby('well')
     # samples_per_pit.drop(['well'])
     # print "samples_per_pit"
     # print samples_per_pit
     # print " END samples_per_pit"
     # samples_per_pit=samples_per_pit.aggregate(np.median)
-    
     # print samples_per_pit
 
 
@@ -357,22 +420,42 @@ def main():
     columns = fullDfWoLabels.columns.tolist()
     # print columns
     samples = fullDfWoLabels[columns].values
-
     # print samples
-
-    # np.savetxt(os.path.join(OUTPUT_DIR, "samples.csv"), samples, delimiter=",")
 
 
     index_list=fullDfWoLabels.index.tolist()
-    print "List of index"
-    print index_list
+    # print "List of index"
+    # print index_list
     result = various_algorithm_launch(samples, index_list, N_CLUSTERS, TARGET)
-    # result = dbscan_launch(samples, index_list)
-    # result = k_mean_launcher(samples, index_list, N_CLUSTERS)
-    # agglomerative_clustering_launcher(samples, index_list, "structured", N_CLUSTERS)
+
+    # result.index.map(groupsByCondition)
+    # resultColumns = result.columns.tolist()
+    # indexlist = result.index.tolist()
+    # print indexlist
+    result['indexline']=result.index.tolist()
+
+    # result[indexlist].map(groupsByCondition)
+    result['condition'] = result['indexline'].map(groupsByCondition)
 
     print "Results"
     print result
+    result.to_csv(os.path.join(OUTPUT_DIR, "result.csv"), sep=",")
+
+
+
+
+    # gridsearch_launch(gridSamples, gridTarget, N_CLUSTERS)
+    # gridsearch_various_launch(gridSamples, gridTarget, N_CLUSTERS)
+
+    # result = dbscan_launch(samples, index_list)
+    result = k_mean_launcher(samples, index_list, N_CLUSTERS)
+    # agglomerative_clustering_launcher(samples, index_list, "structured", N_CLUSTERS)
+
+
+    for i in result:
+        print(" ".join([str(x) for x in result[i]]))
+
+
 
 
 
